@@ -1,6 +1,5 @@
--- ROCKET HUB v2 — універсальний чит-хаб
--- Інжектор: Solara (або будь-який з loadstring)
--- Оновлення: сповіщення + RIVALS + MM2
+-- ROCKET HUB v3 — Build A Boat + Grace + Settings
+-- Інжектор: Solara
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -33,7 +32,6 @@ local State = {
     GravityOff = false,
     ClickTP = false,
     AntiAFK = true,
-    NotifSound = true,
 
     DoorsAutoHide = false,
     DoorsHighlights = false,
@@ -54,6 +52,27 @@ local State = {
     MmEsp = false,
     MmTracers = false,
     MmRoleEsp = true,
+
+    BaEsp = false,
+    BaTracers = false,
+    BaAutoCollect = false,
+
+    GrEsp = false,
+    GrTracers = false,
+    GrFullbright = false,
+}
+
+-- ============================================================
+-- НАЛАШТУВАННЯ (зберігаються в пам'яті, поки скрипт активний)
+-- ============================================================
+local Settings = {
+    NotifSound = true,
+    NotifVolume = 0.5,
+    NotifDuration = 4,           -- секунди
+    SoundSuccess = "rbxassetid://4590662766",
+    SoundError   = "rbxassetid://5159527953",
+    SoundInfo    = "rbxassetid://4590662766",
+    SoundWarn    = "rbxassetid://5159527953",
 }
 
 -- ============================================================
@@ -101,32 +120,25 @@ notifLayout.Padding = UDim.new(0, 8)
 notifLayout.SortOrder = Enum.SortOrder.LayoutOrder
 notifLayout.VerticalAlignment = Enum.VerticalAlignment.Top
 
-local notifSoundSuccess = "rbxassetid://4590662766"
-local notifSoundError = "rbxassetid://5159527953"
-
-local function playNotifSound(id)
-    if not State.NotifSound then return end
-    local s = Instance.new("Sound")
-    s.SoundId = id
-    s.Volume = 0.5
-    s.Parent = SoundService
-    s:Play()
-    game:GetService("Debris"):AddItem(s, 2)
-end
-
 local notifColors = {
     success = Color3.fromRGB(30, 150, 90),
     error = Color3.fromRGB(180, 40, 60),
     warn = Color3.fromRGB(200, 150, 30),
     info = Color3.fromRGB(50, 100, 180),
 }
-
 local notifIcons = {
-    success = "✅",
-    error = "❌",
-    warn = "⚠️",
-    info = "ℹ️",
+    success = "✅", error = "❌", warn = "⚠️", info = "ℹ️",
 }
+
+local function playNotifSound(id)
+    if not Settings.NotifSound then return end
+    local s = Instance.new("Sound")
+    s.SoundId = id
+    s.Volume = Settings.NotifVolume
+    s.Parent = SoundService
+    s:Play()
+    game:GetService("Debris"):AddItem(s, 3)
+end
 
 local function Notify(title, text, ntype)
     ntype = ntype or "info"
@@ -187,19 +199,22 @@ local function Notify(title, text, ntype)
     textL.TextWrapped = true
     textL.Parent = card
 
-    -- Поява
     TweenService:Create(card, TweenInfo.new(0.35, Enum.EasingStyle.Quint), {
         BackgroundTransparency = 0,
         Position = UDim2.new(0, 0, 0, 0),
     }):Play()
 
     if ntype == "success" then
-        playNotifSound(notifSoundSuccess)
+        playNotifSound(Settings.SoundSuccess)
     elseif ntype == "error" then
-        playNotifSound(notifSoundError)
+        playNotifSound(Settings.SoundError)
+    elseif ntype == "warn" then
+        playNotifSound(Settings.SoundWarn)
+    else
+        playNotifSound(Settings.SoundInfo)
     end
 
-    task.delay(4, function()
+    task.delay(Settings.NotifDuration, function()
         local t = TweenService:Create(card, TweenInfo.new(0.35, Enum.EasingStyle.Quint), {
             BackgroundTransparency = 1,
             Position = UDim2.new(1, 60, 0, 0),
@@ -211,7 +226,6 @@ local function Notify(title, text, ntype)
     end)
 end
 
--- Обгортка для безпечного виклику
 local function safe(label, fn)
     local ok, err = pcall(fn)
     if ok then
@@ -256,7 +270,7 @@ local function startFly()
 end
 
 -- ============================================================
--- NOCLIP
+-- NOCLIP / INF JUMP / GRAVITY / FOV
 -- ============================================================
 RunService.Stepped:Connect(function()
     if not State.Noclip then return end
@@ -267,9 +281,6 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- ============================================================
--- INF JUMP
--- ============================================================
 UserInputService.JumpRequest:Connect(function()
     if State.InfJump then
         local hum = getHum()
@@ -277,9 +288,6 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- ============================================================
--- GRAVITY
--- ============================================================
 RunService.Heartbeat:Connect(function()
     if State.GravityOff then
         workspace.Gravity = 0
@@ -288,9 +296,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ============================================================
--- FOV
--- ============================================================
 RunService.RenderStepped:Connect(function()
     if Camera.FieldOfView ~= State.FOV then
         Camera.FieldOfView = State.FOV
@@ -318,8 +323,8 @@ local function createESP(player)
         local d = espList[player]
         local l = tracerList[player]
         local char = player.Character
-        local enabled = State.ESP or State.ArEsp or State.RvEsp or State.MmEsp
-        local tracerOn = State.Tracers or State.ArTracers or State.RvTracers or State.MmTracers
+        local enabled = State.ESP or State.ArEsp or State.RvEsp or State.MmEsp or State.BaEsp or State.GrEsp
+        local tracerOn = State.Tracers or State.ArTracers or State.RvTracers or State.MmTracers or State.BaTracers or State.GrTracers
 
         if not d then return end
         if not char or (not enabled and not tracerOn) then
@@ -344,7 +349,6 @@ local function createESP(player)
                 d.box.Position = Vector2.new(pos.X - w/2, pos.Y - h/2)
                 d.box.Visible = true
 
-                -- Підпис: ім'я + роль (MM2)
                 local labelText = player.Name
                 if State.MmRoleEsp then
                     local role = "Innocent"
@@ -431,7 +435,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
 end)
 
 -- ============================================================
--- DOORS: AUTO HIDE + HIGHLIGHTS + RUSH ALARM
+-- DOORS
 -- ============================================================
 local Cache = {furniture={}, doors={}, items={}, lastRefresh=0, rushActive=false, lastRush=0}
 
@@ -521,11 +525,6 @@ RunService.Heartbeat:Connect(function()
             if n:find("rush") or n:find("ambush") then
                 if not Cache.rushActive then
                     Cache.rushActive = true
-                    local s = Instance.new("Sound")
-                    s.SoundId = "rbxassetid://9125402735"
-                    s.Volume = 2
-                    s.Parent = SoundService
-                    s:Play()
                     Notify("Rush Alarm", "Rush/Ambush виявлено!", "warn")
                 end
                 return
@@ -536,7 +535,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ============================================================
--- BROOKHAVEN SKY PRESETS
+-- BROOKHAVEN SKY
 -- ============================================================
 local bhPresets = {
     Default = {ClockTime=14, Brightness=2, Ambient=Color3.fromRGB(70,70,70), OutdoorAmbient=Color3.fromRGB(128,128,128), FogEnd=500, FogColor=Color3.fromRGB(200,200,200)},
@@ -559,7 +558,7 @@ local function applyBHPreset(name)
 end
 
 -- ============================================================
--- CAMERA LOCK (для Killstreak / RIVALS)
+-- CAMERA LOCK
 -- ============================================================
 local ksTarget = nil
 local function ksFindEnemy(teamCheck)
@@ -600,7 +599,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
--- MM2 — TP до гравців
+-- TP до гравця (MM2)
 -- ============================================================
 local function tpToPlayer(nameQuery)
     for _, p in ipairs(Players:GetPlayers()) do
@@ -617,6 +616,51 @@ local function tpToPlayer(nameQuery)
         end
     end
     Notify("TP", "Гравця не знайдено: " .. nameQuery, "error")
+end
+
+-- ============================================================
+-- BUILD A BOAT: AUTO COLLECT + ESP TREASURE
+-- ============================================================
+local function baAutoCollect()
+    if not State.BaAutoCollect then return end
+    RunService.Heartbeat:Connect(function()
+        if not State.BaAutoCollect then return end
+        local hrp = getHRP()
+        if not hrp then return end
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Parent and obj.Parent.Name:lower():find("treasure") then
+                if (obj.Position - hrp.Position).Magnitude < 50 then
+                    pcall(function()
+                        obj.CFrame = hrp.CFrame
+                    end)
+                end
+            end
+        end
+    end)
+end
+
+-- ============================================================
+-- GRACE: HIGHLIGHT ENTITIES + ESP
+-- ============================================================
+local graceHL = {}
+local function toggleGraceHighlight(on)
+    for _, h in pairs(graceHL) do h:Destroy() end
+    graceHL = {}
+    if not on then return end
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") then
+            local n = obj.Name:lower()
+            if n:find("grace") or n:find("entity") or n:find("monster") or n:find("door") then
+                local hl = Instance.new("Highlight")
+                hl.Adornee = obj
+                hl.FillColor = Color3.fromRGB(255, 80, 200)
+                hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                hl.FillTransparency = 0.5
+                hl.Parent = obj
+                table.insert(graceHL, hl)
+            end
+        end
+    end
 end
 
 -- ============================================================
@@ -651,7 +695,7 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = CoreGui
 
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 620, 0, 480)
+main.Size = UDim2.new(0, 620, 0, 500)
 main.Position = UDim2.new(0, 40, 0, 60)
 main.BackgroundColor3 = Color3.fromRGB(12, 14, 20)
 main.BorderSizePixel = 0
@@ -668,7 +712,7 @@ local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 36)
 title.BackgroundColor3 = Color3.fromRGB(35, 25, 60)
 title.BorderSizePixel = 0
-title.Text = "🚀 ROCKET HUB  •  v2"
+title.Text = "🚀 ROCKET HUB  •  v3"
 title.TextColor3 = Color3.fromRGB(230, 220, 255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 14
@@ -686,6 +730,7 @@ closeBtn.TextSize = 14
 closeBtn.Parent = title
 local cbc = Instance.new("UICorner", closeBtn) cbc.CornerRadius = UDim.new(0, 6)
 
+-- Sidebar
 local sidebar = Instance.new("Frame")
 sidebar.Size = UDim2.new(0, 130, 1, -46)
 sidebar.Position = UDim2.new(0, 8, 0, 42)
@@ -694,11 +739,24 @@ sidebar.BorderSizePixel = 0
 sidebar.Parent = main
 local sbc = Instance.new("UICorner", sidebar) sbc.CornerRadius = UDim.new(0, 8)
 
-local sbLay = Instance.new("UIListLayout", sidebar)
+local sidebarScroll = Instance.new("ScrollingFrame")
+sidebarScroll.Size = UDim2.new(1, 0, 1, 0)
+sidebarScroll.BackgroundTransparency = 1
+sidebarScroll.BorderSizePixel = 0
+sidebarScroll.ScrollBarThickness = 3
+sidebarScroll.ScrollBarImageColor3 = Color3.fromRGB(150,100,220)
+sidebarScroll.CanvasSize = UDim2.new(0,0,0,0)
+sidebarScroll.Parent = sidebar
+
+local sbLay = Instance.new("UIListLayout", sidebarScroll)
 sbLay.Padding = UDim.new(0, 4)
 sbLay.SortOrder = Enum.SortOrder.LayoutOrder
 sbLay.HorizontalAlignment = Enum.HorizontalAlignment.Center
+sbLay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    sidebarScroll.CanvasSize = UDim2.new(0, 0, 0, sbLay.AbsoluteContentSize.Y + 10)
+end)
 
+-- Content
 local content = Instance.new("Frame")
 content.Size = UDim2.new(1, -154, 1, -46)
 content.Position = UDim2.new(0, 146, 0, 42)
@@ -709,7 +767,7 @@ local ccc = Instance.new("UICorner", content) ccc.CornerRadius = UDim.new(0, 8)
 
 local pages = {}
 
-local function newPage(name)
+local function newPage(name, isSettings)
     local page = Instance.new("ScrollingFrame")
     page.Size = UDim2.new(1, -12, 1, -12)
     page.Position = UDim2.new(0, 6, 0, 6)
@@ -729,13 +787,13 @@ local function newPage(name)
 
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -12, 0, 34)
-    btn.BackgroundColor3 = Color3.fromRGB(30, 32, 45)
+    btn.BackgroundColor3 = isSettings and Color3.fromRGB(60, 40, 90) or Color3.fromRGB(30, 32, 45)
     btn.Text = name
     btn.TextColor3 = Color3.fromRGB(210, 205, 230)
     btn.Font = Enum.Font.GothamSemibold
     btn.TextSize = 13
     btn.LayoutOrder = #pages
-    btn.Parent = sidebar
+    btn.Parent = sidebarScroll
     local bc = Instance.new("UICorner", btn) bc.CornerRadius = UDim.new(0, 6)
 
     btn.MouseEnter:Connect(function()
@@ -743,20 +801,24 @@ local function newPage(name)
     end)
     btn.MouseLeave:Connect(function()
         if not pages[name] or not pages[name].page.Visible then
-            TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3=Color3.fromRGB(30,32,45)}):Play()
+            TweenService:Create(btn, TweenInfo.new(0.15), {
+                BackgroundColor3 = isSettings and Color3.fromRGB(60,40,90) or Color3.fromRGB(30,32,45)
+            }):Play()
         end
     end)
 
     btn.MouseButton1Click:Connect(function()
         for n, p in pairs(pages) do
             p.page.Visible = false
-            TweenService:Create(p.btn, TweenInfo.new(0.2), {BackgroundColor3=Color3.fromRGB(30,32,45)}):Play()
+            TweenService:Create(p.btn, TweenInfo.new(0.2), {
+                BackgroundColor3 = p.isSettings and Color3.fromRGB(60,40,90) or Color3.fromRGB(30,32,45)
+            }):Play()
         end
         page.Visible = true
         TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3=Color3.fromRGB(120,80,200)}):Play()
     end)
 
-    pages[name] = {page=page, btn=btn}
+    pages[name] = {page=page, btn=btn, isSettings=isSettings}
     return page
 end
 
@@ -861,6 +923,23 @@ local function makeSlider(parent, label, min, max, default, cb)
     end)
 end
 
+local function makeTextBox(parent, default, placeholder, cb)
+    local t = Instance.new("TextBox")
+    t.Size = UDim2.new(1, -10, 0, 30)
+    t.BackgroundColor3 = Color3.fromRGB(28, 30, 42)
+    t.Text = default or ""
+    t.PlaceholderText = placeholder or ""
+    t.TextColor3 = Color3.fromRGB(220, 215, 240)
+    t.Font = Enum.Font.Gotham
+    t.TextSize = 12
+    t.Parent = parent
+    local c = Instance.new("UICorner", t) c.CornerRadius = UDim.new(0, 6)
+    if cb then
+        t.FocusLost:Connect(function() cb(t.Text) end)
+    end
+    return t
+end
+
 -- ============================================================
 -- СТОРІНКА: DOORS
 -- ============================================================
@@ -962,7 +1041,7 @@ makeSlider(pRv, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
 makeButton(pRv, "Server Hop", serverHop)
 
 -- ============================================================
--- СТОРІНКА: MM2 (Murder Mystery 2)
+-- СТОРІНКА: MM2
 -- ============================================================
 local pMm = newPage("MM2")
 makeLabel(pMm, "— Murder Mystery 2 —")
@@ -971,28 +1050,19 @@ makeToggle(pMm, "Role ESP (Knife/Gun)", true, function(on) State.MmRoleEsp = on 
 makeToggle(pMm, "Tracers", false, function(on) State.MmTracers = on end)
 makeToggle(pMm, "Fullbright", false, function(on) State.Fullbright = on end)
 makeSlider(pMm, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
-makeLabel(pMm, "— TP до гравця (введи ім'я нижче) —")
-
-local tpNameBox = Instance.new("TextBox")
-tpNameBox.Size = UDim2.new(1, -10, 0, 30)
-tpNameBox.BackgroundColor3 = Color3.fromRGB(28, 30, 42)
-tpNameBox.Text = "ім'я гравця..."
-tpNameBox.TextColor3 = Color3.fromRGB(180, 180, 200)
-tpNameBox.Font = Enum.Font.Gotham
-tpNameBox.TextSize = 12
-tpNameBox.PlaceholderText = "ім'я гравця..."
-tpNameBox.Parent = pMm
-local tbc = Instance.new("UICorner", tpNameBox) tbc.CornerRadius = UDim.new(0, 6)
-
+makeLabel(pMm, "— TP до гравця —")
+makeTextBox(pMm, "", "введи ім'я гравця")
 makeButton(pMm, "TP до гравця", function()
-    local name = tpNameBox.Text
-    if name == "" or name == "ім'я гравця..." then
+    local name = ""
+    for _, child in ipairs(pMm:GetChildren()) do
+        if child:IsA("TextBox") then name = child.Text end
+    end
+    if name == "" then
         Notify("TP", "Введи ім'я гравця", "warn")
         return
     end
     tpToPlayer(name)
 end)
-
 makeButton(pMm, "TP до випадкового", function()
     safe("TP випадковий", function()
         local list = {}
@@ -1009,8 +1079,41 @@ makeButton(pMm, "TP до випадкового", function()
         end
     end)
 end)
-
 makeButton(pMm, "Server Hop", serverHop)
+
+-- ============================================================
+-- СТОРІНКА: BUILD A BOAT
+-- ============================================================
+local pBa = newPage("Build A Boat")
+makeLabel(pBa, "— Build A Boat For Treasure —")
+makeToggle(pBa, "ESP Players", false, function(on) State.BaEsp = on end)
+makeToggle(pBa, "Tracers", false, function(on) State.BaTracers = on end)
+makeToggle(pBa, "Auto Collect Treasure", false, function(on)
+    State.BaAutoCollect = on
+    if on then baAutoCollect() end
+end)
+makeToggle(pBa, "Fullbright", false, function(on) State.Fullbright = on end)
+makeSlider(pBa, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
+makeButton(pBa, "Server Hop", serverHop)
+makeButton(pBa, "Rejoin", function()
+    Notify("Rejoin", "Перезахід...", "info")
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+end)
+
+-- ============================================================
+-- СТОРІНКА: GRACE
+-- ============================================================
+local pGr = newPage("Grace")
+makeLabel(pGr, "— Grace —")
+makeToggle(pGr, "ESP Players", false, function(on) State.GrEsp = on end)
+makeToggle(pGr, "Tracers", false, function(on) State.GrTracers = on end)
+makeToggle(pGr, "Highlight Entities/Doors", false, function(on) toggleGraceHighlight(on) end)
+makeToggle(pGr, "Fullbright", false, function(on) State.Fullbright = on end)
+makeSlider(pGr, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
+makeSlider(pGr, "Speed", 16, 60, 20, function(v) State.Speed = v applyHumanoid() end)
+makeToggle(pGr, "Noclip", false, function(on) State.Noclip = on end)
+makeToggle(pGr, "Inf Jump", false, function(on) State.InfJump = on end)
+makeButton(pGr, "Server Hop", serverHop)
 
 -- ============================================================
 -- СТОРІНКА: BLOX FRUITS
@@ -1026,7 +1129,7 @@ makeSlider(pBF, "Speed", 16, 300, State.Speed, function(v) State.Speed = v apply
 makeToggle(pBF, "Noclip", false, function(on) State.Noclip = on end)
 
 -- ============================================================
--- СТОРІНКА: OTHER (головна)
+-- СТОРІНКА: OTHER
 -- ============================================================
 local pOther = newPage("Other")
 makeLabel(pOther, "— Загальні функції —")
@@ -1048,19 +1151,8 @@ makeToggle(pOther, "Tracers", false, function(on) State.Tracers = on end)
 makeToggle(pOther, "Fullbright", false, function(on) State.Fullbright = on end)
 makeToggle(pOther, "Click TP", false, function(on) State.ClickTP = on end)
 makeToggle(pOther, "Anti-AFK", true, function(on) State.AntiAFK = on end)
-makeToggle(pOther, "Notif Sound", true, function(on) State.NotifSound = on end)
 
 makeLabel(pOther, "— Утиліти —")
-makeButton(pOther, "Test Notification (success)", function()
-    Notify("Тест", "Успіх!", "success")
-end)
-makeButton(pOther, "Test Notification (error)", function()
-    Notify("Тест", "Помилка: щось зламалось", "error")
-end)
-makeButton(pOther, "Test Notification (warn)", function()
-    Notify("Тест", "Увага: перевір щось", "warn")
-end)
-
 makeButton(pOther, "Reset Character", function()
     safe("Reset", function()
         local hum = getHum() if hum then hum.Health = 0 end
@@ -1073,13 +1165,14 @@ end)
 makeButton(pOther, "Server Hop", serverHop)
 makeButton(pOther, "Unload ROCKET HUB", function()
     stopFly()
-    State.ESP = false State.Tracers = false State.RvEsp = false State.MmEsp = false
+    State.ESP = false State.Tracers = false State.RvEsp = false State.MmEsp = false State.BaEsp = false State.GrEsp = false
     for _, d in pairs(espList) do
         d.box:Remove() d.name:Remove()
     end
     for _, l in pairs(tracerList) do l:Remove() end
     for _, h in pairs(doorHL) do h:Destroy() end
     for _, h in pairs(itemHL) do h:Destroy() end
+    for _, h in pairs(graceHL) do h:Destroy() end
     Notify("ROCKET", "Скрипт вивантажено", "success")
     task.wait(0.3)
     gui:Destroy()
@@ -1087,11 +1180,83 @@ makeButton(pOther, "Unload ROCKET HUB", function()
 end, Color3.fromRGB(90, 30, 40))
 
 -- ============================================================
+-- СТОРІНКА: SETTINGS
+-- ============================================================
+local pSet = newPage("⚙ Settings", true)
+
+makeLabel(pSet, "— Сповіщення —")
+
+makeToggle(pSet, "Звук сповіщень", Settings.NotifSound, function(on)
+    Settings.NotifSound = on
+end)
+
+makeSlider(pSet, "Гучність (%)", 0, 100, math.floor(Settings.NotifVolume*100), function(v)
+    Settings.NotifVolume = v / 100
+end)
+
+makeSlider(pSet, "Тривалість (сек)", 1, 15, Settings.NotifDuration, function(v)
+    Settings.NotifDuration = v
+end)
+
+makeLabel(pSet, "— Звукові ID —")
+makeLabel(pSet, "Встав rbxassetid або просто число", Color3.fromRGB(180,180,180))
+
+makeLabel(pSet, "Success Sound ID:", Color3.fromRGB(120,200,140))
+makeTextBox(pSet, Settings.SoundSuccess, "rbxassetid://...", function(text)
+    if text and text ~= "" then
+        Settings.SoundSuccess = text
+        Notify("Settings", "Success звук оновлено", "success")
+    end
+end)
+
+makeLabel(pSet, "Error Sound ID:", Color3.fromRGB(220,120,120))
+makeTextBox(pSet, Settings.SoundError, "rbxassetid://...", function(text)
+    if text and text ~= "" then
+        Settings.SoundError = text
+        Notify("Settings", "Error звук оновлено", "success")
+    end
+end)
+
+makeLabel(pSet, "Info Sound ID:", Color3.fromRGB(120,160,220))
+makeTextBox(pSet, Settings.SoundInfo, "rbxassetid://...", function(text)
+    if text and text ~= "" then
+        Settings.SoundInfo = text
+        Notify("Settings", "Info звук оновлено", "success")
+    end
+end)
+
+makeLabel(pSet, "Warn Sound ID:", Color3.fromRGB(220,200,120))
+makeTextBox(pSet, Settings.SoundWarn, "rbxassetid://...", function(text)
+    if text and text ~= "" then
+        Settings.SoundWarn = text
+        Notify("Settings", "Warn звук оновлено", "success")
+    end
+end)
+
+makeLabel(pSet, "— Тестування —")
+makeButton(pSet, "Тест: Success", function() Notify("Тест", "Це успіх!", "success") end)
+makeButton(pSet, "Тест: Error", function() Notify("Тест", "Це помилка!", "error") end)
+makeButton(pSet, "Тест: Warn", function() Notify("Тест", "Це попередження!", "warn") end)
+makeButton(pSet, "Тест: Info", function() Notify("Тест", "Це інформація", "info") end)
+
+makeLabel(pSet, "— Скидання —")
+makeButton(pSet, "Скинути налаштування", function()
+    Settings.NotifSound = true
+    Settings.NotifVolume = 0.5
+    Settings.NotifDuration = 4
+    Settings.SoundSuccess = "rbxassetid://4590662766"
+    Settings.SoundError   = "rbxassetid://5159527953"
+    Settings.SoundInfo    = "rbxassetid://4590662766"
+    Settings.SoundWarn    = "rbxassetid://5159527953"
+    Notify("Settings", "Налаштування скинуто. Перезапусти скрипт.", "warn")
+end, Color3.fromRGB(80, 40, 40))
+
+-- ============================================================
 -- ДЕФОЛТНА СТОРІНКА
 -- ============================================================
 for n, p in pairs(pages) do
     p.page.Visible = (n == "Other")
-    p.btn.BackgroundColor3 = (n == "Other") and Color3.fromRGB(120,80,200) or Color3.fromRGB(30,32,45)
+    p.btn.BackgroundColor3 = (n == "Other") and Color3.fromRGB(120,80,200) or (p.isSettings and Color3.fromRGB(60,40,90) or Color3.fromRGB(30,32,45))
 end
 
 -- Сворачивание
@@ -1099,7 +1264,7 @@ local opened = true
 closeBtn.MouseButton1Click:Connect(function()
     opened = not opened
     if opened then
-        TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size=UDim2.new(0,620,0,480)}):Play()
+        TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size=UDim2.new(0,620,0,500)}):Play()
         sidebar.Visible = true content.Visible = true
         closeBtn.Text = "—"
     else
@@ -1109,8 +1274,5 @@ closeBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ============================================================
--- СТАРТОВЕ ПОВІДОМЛЕННЯ
--- ============================================================
-Notify("ROCKET HUB", "Завантажено успішно! Плейсів: 8", "success")
-print("[ROCKET HUB v2] Loaded — Doors, Brookhaven, Killstreak, Arsenal, RIVALS, MM2, Blox Fruits, Other")
+Notify("ROCKET HUB v3", "Завантажено! Плейсів: 10 + Settings", "success")
+print("[ROCKET HUB v3] Loaded — Doors, Brookhaven, Killstreak, Arsenal, RIVALS, MM2, Build A Boat, Grace, Blox Fruits, Other, Settings")
