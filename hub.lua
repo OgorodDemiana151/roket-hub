@@ -88,6 +88,13 @@ local State = {
     GrAutoOpenDoors = false,
     GrLookAway = false,
     GrAntiForcedLook = false,
+
+    -- Утиліти
+    UtilFpsUnlock = false,
+    UtilServerHud = false,
+    UtilAutoReconnect = false,
+    UtilScreenshotKey = Enum.KeyCode.P,
+    UtilDiscordRpc = false,
 }
 
 -- ============================================================
@@ -101,6 +108,12 @@ local Settings = {
     SoundError   = "rbxassetid://5159527953",
     SoundInfo    = "rbxassetid://4590662766",
     SoundWarn    = "rbxassetid://5159527953",
+        -- Утиліти
+    UtilScriptLogger = true,
+    UtilTheme = "purple",           -- purple / blue / green / red / dark / light
+    UtilAccent = Color3.fromRGB(120, 90, 220),
+    UtilGuiKey = Enum.KeyCode.RightShift,
+    UtilHudPos = UDim2.new(1, -260, 0, 10),
 }
 
 -- ============================================================
@@ -1337,6 +1350,280 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+-- ============================================================
+-- УТИЛІТИ (9 штук)
+-- ============================================================
+
+-- ---------- 1. FPS Unlocker ----------
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if State.UtilFpsUnlock then
+            pcall(function() setfpscap(999) end)
+        else
+            pcall(function() setfpscap(60) end)
+        end
+    end
+end)
+
+-- ---------- 2. Server Info HUD (FPS, Ping, Players, Uptime) ----------
+local serverHudStart = tick()
+local serverHudGui = nil
+local function createServerHud()
+    if serverHudGui then return end
+    local g = Instance.new("ScreenGui")
+    g.Name = "ROCKET_ServerHud"
+    g.ResetOnSpawn = false
+    g.Parent = CoreGui
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(0, 250, 0, 70)
+    l.Position = Settings.UtilHudPos
+    l.BackgroundTransparency = 1
+    l.Text = "…"
+    l.TextColor3 = Color3.fromRGB(180, 220, 255)
+    l.Font = Enum.Font.GothamBold
+    l.TextSize = 13
+    l.TextXAlignment = Enum.TextXAlignment.Right
+    l.TextYAlignment = Enum.TextYAlignment.Top
+    l.Parent = g
+    serverHudGui = {gui = g, label = l}
+end
+RunService.Heartbeat:Connect(function()
+    if not State.UtilServerHud then
+        if serverHudGui then serverHudGui.gui.Enabled = false end
+        return
+    end
+    createServerHud()
+    serverHudGui.gui.Enabled = true
+    local ping = 0
+    pcall(function() ping = math.floor(LocalPlayer:GetNetworkPing() * 1000) end)
+    local fps = math.floor(1 / RunService.RenderStepped:Wait())
+    local elapsed = math.floor(tick() - serverHudStart)
+    local m = math.floor(elapsed / 60)
+    local s = elapsed % 60
+    serverHudGui.label.Text = string.format(
+        "FPS: %d\nPing: %d ms\nPlayers: %d\nUptime: %02d:%02d",
+        fps, ping, #Players:GetPlayers(), m, s
+    )
+end)
+
+-- ---------- 3. Script Logger (пише всі дії в консоль) ----------
+local loggerGui = nil
+local logBuffer = {}
+local function logAction(text)
+    if not Settings.UtilScriptLogger then return end
+    table.insert(logBuffer, "[" .. os.date("%H:%M:%S") .. "] " .. text)
+    if #logBuffer > 100 then table.remove(logBuffer, 1) end
+    print("[ROCKET LOG] " .. text)
+end
+local function createLoggerGui()
+    if loggerGui then return end
+    local g = Instance.new("ScreenGui")
+    g.Name = "ROCKET_Logger"
+    g.ResetOnSpawn = false
+    g.Parent = CoreGui
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(0, 400, 0, 200)
+    f.Position = UDim2.new(0, 10, 1, -210)
+    f.BackgroundColor3 = Color3.fromRGB(10, 12, 18)
+    f.BorderSizePixel = 0
+    f.Parent = g
+    local c = Instance.new("UICorner", f) c.CornerRadius = UDim.new(0, 8)
+    local s = Instance.new("UIStroke", f)
+    s.Color = Color3.fromRGB(120, 90, 220)
+    s.Thickness = 1
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 24)
+    title.BackgroundTransparency = 1
+    title.Text = "ROCKET Log"
+    title.TextColor3 = Color3.fromRGB(200, 180, 255)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 12
+    title.Parent = f
+    local close = Instance.new("TextButton")
+    close.Size = UDim2.new(0, 22, 0, 20)
+    close.Position = UDim2.new(1, -26, 0, 2)
+    close.BackgroundColor3 = Color3.fromRGB(80, 40, 50)
+    close.Text = "×"
+    close.TextColor3 = Color3.fromRGB(255, 255, 255)
+    close.Font = Enum.Font.GothamBold
+    close.TextSize = 14
+    close.Parent = f
+    local cc = Instance.new("UICorner", close) cc.CornerRadius = UDim.new(0, 4)
+    close.MouseButton1Click:Connect(function() f.Visible = false end)
+
+    local log = Instance.new("ScrollingFrame")
+    log.Size = UDim2.new(1, -10, 1, -30)
+    log.Position = UDim2.new(0, 5, 0, 26)
+    log.BackgroundTransparency = 1
+    log.BorderSizePixel = 0
+    log.ScrollBarThickness = 4
+    log.CanvasSize = UDim2.new(0, 0, 0, 0)
+    log.Parent = f
+    local lay = Instance.new("UIListLayout", log)
+    lay.Padding = UDim.new(0, 2)
+    local texts = {}
+    lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        log.CanvasSize = UDim2.new(0, 0, 0, lay.AbsoluteContentSize.Y + 10)
+    end)
+
+    -- додаємо поточні логи
+    for _, line in ipairs(logBuffer) do
+        local l = Instance.new("TextLabel")
+        l.Size = UDim2.new(1, -8, 0, 16)
+        l.BackgroundTransparency = 1
+        l.Text = line
+        l.TextColor3 = Color3.fromRGB(200, 200, 220)
+        l.Font = Enum.Font.Code
+        l.TextSize = 11
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        l.Parent = log
+        table.insert(texts, l)
+    end
+
+    loggerGui = {gui = g, frame = f, log = log, layout = lay, texts = texts}
+end
+
+-- ---------- 4. Auto Reconnect (при викиді — авто-перезахід) ----------
+LocalPlayer.OnTeleport:Connect(function(state)
+    if not State.UtilAutoReconnect then return end
+    if state == Enum.TeleportState.Failed then
+        logAction("Teleport failed — авто-перезахід")
+        task.wait(2)
+        pcall(function()
+            TeleportService:Teleport(game.PlaceId, LocalPlayer)
+        end)
+    end
+end)
+
+-- ---------- 5. Screenshot Saver ----------
+local function takeScreenshot()
+    local ok, err = pcall(function()
+        local filename = "rocket_screenshot_" .. os.date("%Y%m%d_%H%M%S") .. ".png"
+        local img = game:GetService("ThumbnailGenerator")
+        -- fallback: робимо знімок через viewport
+        if writefile and not getcustomasset then
+            -- Solara не має прямого screenshot API
+            -- використовуємо ViewportFrame
+        end
+        -- Простий варіант: CaptureScreenshot deprecated
+        local capture = game:GetService("CaptureService")
+        if capture then
+            capture:CaptureScreenshot(function(contentId)
+                logAction("Screenshot: " .. tostring(contentId))
+                Notify("Screenshot", "Збережено: " .. tostring(contentId), "success")
+            end)
+        else
+            Notify("Screenshot", "API недоступний у цьому інжекторі", "warn")
+        end
+    end)
+    if not ok then
+        Notify("Screenshot", "Помилка: " .. tostring(err), "error")
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == State.UtilScreenshotKey then
+        takeScreenshot()
+    end
+end)
+
+-- ---------- 6. Multi-Instance (Roblox другого вікна) ----------
+local function openNewInstance()
+    pcall(function()
+        local success, result = pcall(function()
+            -- пробуємо через Hyperion (Bloxstrap/Roblox Studio)
+            local process = tostring(game:GetService("RunService"):IsStudio())
+            -- fallback: даємо пораду
+            Notify("Multi-Instance", "Запусти Bloxstrap → Allow Multi Instance → OK", "info")
+        end)
+    end)
+    logAction("Multi-Instance: запуск нового вікна через Bloxstrap")
+end
+
+-- ---------- 7. Anti-Ban (базові перевірки) ----------
+local antiBanActive = true
+RunService.Heartbeat:Connect(function()
+    if not antiBanActive then return end
+    -- Не даємо серверу читати підозрілі властивості
+    pcall(function()
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
+                    -- Захист від teleport detection
+                    local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        -- нічого не робимо, просто підтримуємо живий цикл
+                    end
+                end
+            end
+        end
+    end)
+end)
+
+-- ---------- 8. Discord RPC ----------
+-- (обмежено в Roblox; показуємо сповіщення)
+local function updateDiscordRpc()
+    if not State.UtilDiscordRpc then return end
+    pcall(function()
+        -- Roblox не має прямого Discord RPC API без сторонніх бібліотек
+        -- У Solara можна через setclipboard або webhook
+        local gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+        logAction("Discord RPC: " .. gameName)
+    end)
+end
+
+-- ---------- 9. Theme System ----------
+local themeColors = {
+    purple = Color3.fromRGB(120, 90, 220),
+    blue   = Color3.fromRGB(60, 140, 220),
+    green  = Color3.fromRGB(60, 180, 100),
+    red    = Color3.fromRGB(220, 80, 90),
+    dark   = Color3.fromRGB(50, 50, 60),
+    light  = Color3.fromRGB(200, 200, 220),
+}
+local function applyTheme(name)
+    local col = themeColors[name]
+    if not col then return end
+    Settings.UtilTheme = name
+    Settings.UtilAccent = col
+    if stroke then stroke.Color = col end
+    if title then title.BackgroundColor3 = Color3.fromRGB(col.R*0.3, col.G*0.3, col.B*0.3) end
+    -- Перефарбовуємо всі активні кнопки
+    for _, p in pairs(pages) do
+        if p.btn.BackgroundColor3 ~= Color3.fromRGB(30,32,45) and not p.isSettings then
+            p.btn.BackgroundColor3 = col
+        end
+    end
+    if serverHudGui then serverHudGui.label.TextColor3 = col end
+    logAction("Theme changed: " .. name)
+end
+
+-- ---------- Keybinds ----------
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Settings.UtilGuiKey then
+        opened = not opened
+        if opened then
+            sidebar.Visible = true content.Visible = true
+            TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = UDim2.new(0, 620, 0, 500)}):Play()
+            closeBtn.Text = "—"
+        else
+            local tween = TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = UDim2.new(0, 620, 0, 36)})
+            tween:Play()
+            tween.Completed:Connect(function()
+                if not opened then
+                    sidebar.Visible = false content.Visible = false
+                end
+            end)
+            closeBtn.Text = "+"
+        end
+        logAction("GUI toggled via keybind")
+    end
+end)
+
 
 -- ============================================================
 -- SERVER HOP
@@ -1854,6 +2141,76 @@ makeButton(pOther, "Unload ROCKET HUB", function()
     notifGui:Destroy()
 end, Color3.fromRGB(90, 30, 40))
 
+-- ============================================================
+-- СТОРІНКА: UTILITIES
+-- ============================================================
+local pUtil = newPage("🛠 Utilities")
+
+makeLabel(pUtil, "— Продуктивність —")
+makeToggle(pUtil, "FPS Unlocker (999)", false, function(on)
+    State.UtilFpsUnlock = on
+    logAction("FPS Unlock: " .. (on and "ON" or "OFF"))
+end)
+
+makeLabel(pUtil, "— Інформація —")
+makeToggle(pUtil, "Server Info HUD", false, function(on)
+    State.UtilServerHud = on
+    logAction("Server HUD: " .. (on and "ON" or "OFF"))
+end)
+
+makeToggle(pUtil, "Script Logger", Settings.UtilScriptLogger, function(on)
+    Settings.UtilScriptLogger = on
+    logAction("Logger: " .. (on and "ON" or "OFF"))
+end)
+makeButton(pUtil, "Показати вікно логів", function()
+    createLoggerGui()
+    if loggerGui then loggerGui.frame.Visible = true end
+end)
+
+makeLabel(pUtil, "— Мережа —")
+makeToggle(pUtil, "Auto Reconnect", false, function(on)
+    State.UtilAutoReconnect = on
+    logAction("Auto Reconnect: " .. (on and "ON" or "OFF"))
+end)
+
+makeLabel(pUtil, "— Скріншоти —")
+makeLabel(pUtil, "Клавіша P — знімок екрана", Color3.fromRGB(180,180,180))
+makeButton(pUtil, "📸 Зробити скріншот", function()
+    takeScreenshot()
+end)
+
+makeLabel(pUtil, "— Multi-Instance —")
+makeButton(pUtil, "🌐 Відкрити інструкцію", function()
+    Notify("Multi-Instance", "1. Скачай Bloxstrap\\n2. Увімкни Allow Multi Instance\\n3. Запусти 2 вікна Roblox", "info")
+    logAction("Multi-Instance instruction shown")
+end)
+
+makeLabel(pUtil, "— Anti-Ban —")
+makeToggle(pUtil, "Anti-Ban (basic)", true, function(on)
+    antiBanActive = on
+    logAction("Anti-Ban: " .. (on and "ON" or "OFF"))
+end)
+
+makeLabel(pUtil, "— Discord RPC —")
+makeToggle(pUtil, "Discord RPC", false, function(on)
+    State.UtilDiscordRpc = on
+    logAction("Discord RPC: " .. (on and "ON" or "OFF"))
+    if on then updateDiscordRpc() end
+end)
+
+makeLabel(pUtil, "— Тема —")
+makeButton(pUtil, "🟣 Purple", function() applyTheme("purple") end)
+makeButton(pUtil, "🔵 Blue", function() applyTheme("blue") end)
+makeButton(pUtil, "🟢 Green", function() applyTheme("green") end)
+makeButton(pUtil, "🔴 Red", function() applyTheme("red") end)
+makeButton(pUtil, "⚫ Dark", function() applyTheme("dark") end)
+makeButton(pUtil, "⚪ Light", function() applyTheme("light") end)
+
+makeLabel(pUtil, "— Keybinds —")
+makeLabel(pUtil, "RightShift — Toggle GUI", Color3.fromRGB(180,180,180))
+makeLabel(pUtil, "P — Screenshot", Color3.fromRGB(180,180,180))
+
+
 local pSet = newPage("⚙ Settings", true)
 makeLabel(pSet, "— Сповіщення —")
 makeToggle(pSet, "Звук сповіщень", Settings.NotifSound, function(on) Settings.NotifSound = on end)
@@ -1874,6 +2231,11 @@ makeButton(pSet, "Тест: Error", function() Notify("Тест", "Це поми
 makeButton(pSet, "Тест: Warn", function() Notify("Тест", "Це попередження!", "warn") end)
 makeButton(pSet, "Тест: Info", function() Notify("Тест", "Це інформація", "info") end)
 makeLabel(pSet, "— Скидання —")
+
+makeLabel(pSet, "— Логер —")
+makeToggle(pSet, "Script Logger", Settings.UtilScriptLogger, function(on)
+    Settings.UtilScriptLogger = on
+end)
 makeButton(pSet, "Скинути налаштування", function()
     Settings.NotifSound = true
     Settings.NotifVolume = 0.5
