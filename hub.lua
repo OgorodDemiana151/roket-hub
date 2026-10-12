@@ -1,4 +1,4 @@
--- ROCKET HUB v3 — Build A Boat + Grace + Settings
+-- ROCKET HUB v4 — Grace Extended (20 функцій)
 -- Інжектор: Solara
 
 local Players = game:GetService("Players")
@@ -57,18 +57,43 @@ local State = {
     BaTracers = false,
     BaAutoCollect = false,
 
+    -- GRACE — 20 функцій
     GrEsp = false,
     GrTracers = false,
     GrFullbright = false,
+    GrEntityAlarm = false,
+    GrEntityAlarmRadius = 40,
+    GrDoorHighlight = false,
+    GrItemEsp = false,
+    GrEntityDistance = false,
+    GrSafeZoneFinder = false,
+    GrAutoHide = false,
+    GrRushAlarm = false,
+    GrMuteAmbient = false,
+    GrCrosshair = false,
+    GrWaypoint = false,
+    GrWaypointPos = nil,
+    GrSpeedBoost = false,
+    GrThirdPerson = false,
+    GrThirdPersonDist = 8,
+    GrNoFog = false,
+    GrCoordsHud = false,
+    GrEntityCounter = false,
+    GrGraceRoomMarker = false,
+    GrAutoCrouch = false,
+    GrFootstepMute = false,
+    GrSkyPreset = "Default",
+    GrSpeedrunTimer = false,
+    GrSpeedrunStart = nil,
 }
 
 -- ============================================================
--- НАЛАШТУВАННЯ (зберігаються в пам'яті, поки скрипт активний)
+-- НАЛАШТУВАННЯ
 -- ============================================================
 local Settings = {
     NotifSound = true,
     NotifVolume = 0.5,
-    NotifDuration = 4,           -- секунди
+    NotifDuration = 4,
     SoundSuccess = "rbxassetid://4590662766",
     SoundError   = "rbxassetid://5159527953",
     SoundInfo    = "rbxassetid://4590662766",
@@ -101,12 +126,11 @@ LocalPlayer.CharacterAdded:Connect(function()
 end)
 
 -- ============================================================
--- СИСТЕМА СПОВІЩЕНЬ
+-- СПОВІЩЕННЯ
 -- ============================================================
 local notifGui = Instance.new("ScreenGui")
 notifGui.Name = "ROCKET_Notifs"
 notifGui.ResetOnSpawn = false
-notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 notifGui.Parent = CoreGui
 
 local notifHolder = Instance.new("Frame")
@@ -114,11 +138,8 @@ notifHolder.Size = UDim2.new(0, 320, 1, -40)
 notifHolder.Position = UDim2.new(1, -340, 0, 20)
 notifHolder.BackgroundTransparency = 1
 notifHolder.Parent = notifGui
-
 local notifLayout = Instance.new("UIListLayout", notifHolder)
 notifLayout.Padding = UDim.new(0, 8)
-notifLayout.SortOrder = Enum.SortOrder.LayoutOrder
-notifLayout.VerticalAlignment = Enum.VerticalAlignment.Top
 
 local notifColors = {
     success = Color3.fromRGB(30, 150, 90),
@@ -126,9 +147,7 @@ local notifColors = {
     warn = Color3.fromRGB(200, 150, 30),
     info = Color3.fromRGB(50, 100, 180),
 }
-local notifIcons = {
-    success = "✅", error = "❌", warn = "⚠️", info = "ℹ️",
-}
+local notifIcons = {success="✅", error="❌", warn="⚠️", info="ℹ️"}
 
 local function playNotifSound(id)
     if not Settings.NotifSound then return end
@@ -149,11 +168,9 @@ local function Notify(title, text, ntype)
     card.Size = UDim2.new(1, 0, 0, 60)
     card.BackgroundColor3 = Color3.fromRGB(20, 22, 32)
     card.BackgroundTransparency = 1
-    card.BorderSizePixel = 0
     card.Position = UDim2.new(1, 60, 0, 0)
     card.Parent = notifHolder
     local cc = Instance.new("UICorner", card) cc.CornerRadius = UDim.new(0, 8)
-
     local stroke = Instance.new("UIStroke", card)
     stroke.Color = color
     stroke.Thickness = 1.5
@@ -162,7 +179,6 @@ local function Notify(title, text, ntype)
     local bar = Instance.new("Frame")
     bar.Size = UDim2.new(0, 4, 1, 0)
     bar.BackgroundColor3 = color
-    bar.BorderSizePixel = 0
     bar.Parent = card
     local bc = Instance.new("UICorner", bar) bc.CornerRadius = UDim.new(0, 8)
 
@@ -196,7 +212,6 @@ local function Notify(title, text, ntype)
     textL.Font = Enum.Font.Gotham
     textL.TextSize = 11
     textL.TextXAlignment = Enum.TextXAlignment.Left
-    textL.TextWrapped = true
     textL.Parent = card
 
     TweenService:Create(card, TweenInfo.new(0.35, Enum.EasingStyle.Quint), {
@@ -204,18 +219,13 @@ local function Notify(title, text, ntype)
         Position = UDim2.new(0, 0, 0, 0),
     }):Play()
 
-    if ntype == "success" then
-        playNotifSound(Settings.SoundSuccess)
-    elseif ntype == "error" then
-        playNotifSound(Settings.SoundError)
-    elseif ntype == "warn" then
-        playNotifSound(Settings.SoundWarn)
-    else
-        playNotifSound(Settings.SoundInfo)
-    end
+    if ntype == "success" then playNotifSound(Settings.SoundSuccess)
+    elseif ntype == "error" then playNotifSound(Settings.SoundError)
+    elseif ntype == "warn" then playNotifSound(Settings.SoundWarn)
+    else playNotifSound(Settings.SoundInfo) end
 
     task.delay(Settings.NotifDuration, function()
-        local t = TweenService:Create(card, TweenInfo.new(0.35, Enum.EasingStyle.Quint), {
+        local t = TweenService:Create(card, TweenInfo.new(0.35), {
             BackgroundTransparency = 1,
             Position = UDim2.new(1, 60, 0, 0),
         })
@@ -228,11 +238,8 @@ end
 
 local function safe(label, fn)
     local ok, err = pcall(fn)
-    if ok then
-        Notify(label, "Успішно активовано", "success")
-    else
-        Notify(label, "Помилка: " .. tostring(err), "error")
-    end
+    if ok then Notify(label, "Успішно активовано", "success")
+    else Notify(label, "Помилка: " .. tostring(err), "error") end
 end
 
 -- ============================================================
@@ -289,17 +296,11 @@ UserInputService.JumpRequest:Connect(function()
 end)
 
 RunService.Heartbeat:Connect(function()
-    if State.GravityOff then
-        workspace.Gravity = 0
-    else
-        workspace.Gravity = State.Gravity
-    end
+    workspace.Gravity = State.GravityOff and 0 or State.Gravity
 end)
 
 RunService.RenderStepped:Connect(function()
-    if Camera.FieldOfView ~= State.FOV then
-        Camera.FieldOfView = State.FOV
-    end
+    if Camera.FieldOfView ~= State.FOV then Camera.FieldOfView = State.FOV end
 end)
 
 -- ============================================================
@@ -415,7 +416,7 @@ LocalPlayer.Idled:Connect(function()
 end)
 
 -- ============================================================
--- CLICK TELEPORT
+-- CLICK TP
 -- ============================================================
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
@@ -428,14 +429,12 @@ UserInputService.InputBegan:Connect(function(input, gp)
         params.FilterDescendantsInstances = {LocalPlayer.Character}
         params.FilterType = Enum.RaycastFilterType.Exclude
         local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, params)
-        if result then
-            hrp.CFrame = CFrame.new(result.Position + Vector3.new(0,3,0))
-        end
+        if result then hrp.CFrame = CFrame.new(result.Position + Vector3.new(0,3,0)) end
     end
 end)
 
 -- ============================================================
--- DOORS
+-- DOORS (без змін)
 -- ============================================================
 local Cache = {furniture={}, doors={}, items={}, lastRefresh=0, rushActive=false, lastRush=0}
 
@@ -599,7 +598,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
--- TP до гравця (MM2)
+-- TP до гравця
 -- ============================================================
 local function tpToPlayer(nameQuery)
     for _, p in ipairs(Players:GetPlayers()) do
@@ -619,7 +618,7 @@ local function tpToPlayer(nameQuery)
 end
 
 -- ============================================================
--- BUILD A BOAT: AUTO COLLECT + ESP TREASURE
+-- BUILD A BOAT
 -- ============================================================
 local function baAutoCollect()
     if not State.BaAutoCollect then return end
@@ -630,9 +629,7 @@ local function baAutoCollect()
         for _, obj in ipairs(workspace:GetDescendants()) do
             if obj:IsA("BasePart") and obj.Parent and obj.Parent.Name:lower():find("treasure") then
                 if (obj.Position - hrp.Position).Magnitude < 50 then
-                    pcall(function()
-                        obj.CFrame = hrp.CFrame
-                    end)
+                    pcall(function() obj.CFrame = hrp.CFrame end)
                 end
             end
         end
@@ -640,28 +637,563 @@ local function baAutoCollect()
 end
 
 -- ============================================================
--- GRACE: HIGHLIGHT ENTITIES + ESP
+-- GRACE — 20 ФУНКЦІЙ
 -- ============================================================
-local graceHL = {}
-local function toggleGraceHighlight(on)
-    for _, h in pairs(graceHL) do h:Destroy() end
-    graceHL = {}
-    if not on then return end
+
+-- Спільний кеш Grace
+local GraceCache = {
+    entities = {},
+    doors = {},
+    items = {},
+    safeZones = {},
+    lastRefresh = 0,
+    lastAlarm = 0,
+    alarmActive = false,
+    lastRushCheck = 0,
+    rushActive = false,
+    entityHls = {},
+    doorHls = {},
+    itemHls = {},
+    waypointHl = nil,
+    crosshairGui = nil,
+    coordsGui = nil,
+    timerGui = nil,
+    counterGui = nil,
+    distanceGui = nil,
+    safeZoneArrow = nil,
+    ambientMuted = {},
+    footstepMuted = {},
+}
+
+-- Оновлення кешу Grace (раз на 1 сек)
+local function refreshGraceCache()
+    local now = tick()
+    if now - GraceCache.lastRefresh < 1 then return end
+    GraceCache.lastRefresh = now
+    GraceCache.entities, GraceCache.doors, GraceCache.items, GraceCache.safeZones = {}, {}, {}, {}
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") then
+        if obj:IsA("Model") or obj:IsA("BasePart") then
             local n = obj.Name:lower()
-            if n:find("grace") or n:find("entity") or n:find("monster") or n:find("door") then
-                local hl = Instance.new("Highlight")
-                hl.Adornee = obj
-                hl.FillColor = Color3.fromRGB(255, 80, 200)
-                hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                hl.FillTransparency = 0.5
-                hl.Parent = obj
-                table.insert(graceHL, hl)
+            if n:find("grace") or n:find("entity") or n:find("monster") or n:find("rush") or n:find("ambush") or n:find("hide") then
+                if obj:IsA("Model") and obj:FindFirstChildWhichIsA("Humanoid") then
+                    table.insert(GraceCache.entities, obj)
+                elseif n:find("grace") or n:find("entity") or n:find("monster") or n:find("rush") or n:find("ambush") then
+                    table.insert(GraceCache.entities, obj)
+                end
+            end
+            if n:find("door") and not n:find("doorframe") then
+                table.insert(GraceCache.doors, obj)
+            end
+            if n:find("key") or n:find("item") or n:find("medkit") or n:find("flashlight") or n:find("bandage") then
+                table.insert(GraceCache.items, obj)
+            end
+            if n:find("closet") or n:find("wardrobe") or n:find("locker") or n:find("bed") or n:find("hide") then
+                table.insert(GraceCache.safeZones, obj)
             end
         end
     end
 end
+
+-- 1. ENTITY ALARM
+RunService.Heartbeat:Connect(function()
+    if not State.GrEntityAlarm then return end
+    local now = tick()
+    if now - GraceCache.lastAlarm < 1.5 then return end
+    GraceCache.lastAlarm = now
+    refreshGraceCache()
+    local hrp = getHRP()
+    if not hrp then return end
+    for _, ent in ipairs(GraceCache.entities) do
+        local base = ent:IsA("Model") and ent:FindFirstChildWhichIsA("BasePart") or ent
+        if base then
+            local d = (base.Position - hrp.Position).Magnitude
+            if d <= State.GrEntityAlarmRadius then
+                if not GraceCache.alarmActive then
+                    GraceCache.alarmActive = true
+                    Notify("⚠ GRACE ALARM", "Сутність поруч! (" .. math.floor(d) .. " studs)", "error")
+                    local s = Instance.new("Sound")
+                    s.SoundId = Settings.SoundError
+                    s.Volume = Settings.NotifVolume * 1.5
+                    s.Parent = SoundService
+                    s:Play()
+                    game:GetService("Debris"):AddItem(s, 2)
+                end
+                return
+            end
+        end
+    end
+    GraceCache.alarmActive = false
+end)
+
+-- 2. DOOR HIGHLIGHT
+local function toggleGraceDoorHighlight(on)
+    for _, h in pairs(GraceCache.doorHls) do h:Destroy() end
+    GraceCache.doorHls = {}
+    if not on then return end
+    refreshGraceCache()
+    for _, obj in ipairs(GraceCache.doors) do
+        local hl = Instance.new("Highlight")
+        hl.Adornee = obj:IsA("Model") and obj or obj.Parent
+        hl.FillColor = Color3.fromRGB(255, 200, 50)
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+        hl.FillTransparency = 0.5
+        hl.Parent = obj
+        table.insert(GraceCache.doorHls, hl)
+    end
+end
+
+-- 3. ITEM ESP
+local function toggleGraceItemEsp(on)
+    for _, h in pairs(GraceCache.itemHls) do h:Destroy() end
+    GraceCache.itemHls = {}
+    if not on then return end
+    refreshGraceCache()
+    for _, obj in ipairs(GraceCache.items) do
+        local hl = Instance.new("Highlight")
+        hl.Adornee = obj
+        hl.FillColor = Color3.fromRGB(80, 220, 120)
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+        hl.FillTransparency = 0.3
+        hl.Parent = obj
+        table.insert(GraceCache.itemHls, hl)
+    end
+end
+
+-- 4. ENTITY DISTANCE HUD
+local function createGraceDistanceHud()
+    if GraceCache.distanceGui then return end
+    local g = Instance.new("ScreenGui")
+    g.Name = "ROCKET_GraceDistance"
+    g.ResetOnSpawn = false
+    g.Parent = CoreGui
+
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(0, 300, 0, 22)
+    l.Position = UDim2.new(0.5, -150, 0, 10)
+    l.BackgroundTransparency = 1
+    l.Text = "Grace: —"
+    l.TextColor3 = Color3.fromRGB(255, 150, 150)
+    l.Font = Enum.Font.GothamBold
+    l.TextSize = 14
+    l.Parent = g
+    GraceCache.distanceGui = {gui = g, label = l}
+end
+RunService.Heartbeat:Connect(function()
+    if not State.GrEntityDistance then
+        if GraceCache.distanceGui then
+            GraceCache.distanceGui.gui.Enabled = false
+        end
+        return
+    end
+    createGraceDistanceHud()
+    GraceCache.distanceGui.gui.Enabled = true
+    local hrp = getHRP()
+    if not hrp then return end    local closest, dist = nil, math.huge
+    for _, ent in ipairs(GraceCache.entities) do
+        local base = ent:IsA("Model") and ent:FindFirstChildWhichIsA("BasePart") or ent
+        if base then
+            local d = (base.Position - hrp.Position).Magnitude
+            if d < dist then closest, dist = base, d end
+        end
+    end
+    if closest then
+        GraceCache.distanceGui.label.Text = "Grace: " .. math.floor(dist) .. " studs"
+    else
+        GraceCache.distanceGui.label.Text = "Grace: не видно"
+    end
+end)
+
+-- 5. SAFE ZONE FINDER
+local function createGraceSafeZoneArrow()
+    if GraceCache.safeZoneArrow then return end
+    local g = Instance.new("ScreenGui")
+    g.Name = "ROCKET_GraceSafeZone"
+    g.ResetOnSpawn = false
+    g.Parent = CoreGui
+
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(0, 400, 0, 24)
+    l.Position = UDim2.new(0.5, -200, 1, -40)
+    l.BackgroundTransparency = 1
+    l.Text = "Safe Zone: —"
+    l.TextColor3 = Color3.fromRGB(150, 255, 180)
+    l.Font = Enum.Font.GothamBold
+    l.TextSize = 14
+    l.Parent = g
+    GraceCache.safeZoneArrow = {gui = g, label = l}
+end
+RunService.Heartbeat:Connect(function()
+    if not State.GrSafeZoneFinder then
+        if GraceCache.safeZoneArrow then GraceCache.safeZoneArrow.gui.Enabled = false end
+        return
+    end
+    createGraceSafeZoneArrow()
+    GraceCache.safeZoneArrow.gui.Enabled = true
+    local hrp = getHRP()
+    if not hrp then return end
+    local closest, dist = nil, math.huge
+    for _, sz in ipairs(GraceCache.safeZones) do
+        local base = sz:IsA("Model") and sz:FindFirstChildWhichIsA("BasePart") or sz
+        if base then
+            local d = (base.Position - hrp.Position).Magnitude
+            if d < dist then closest, dist = base, d end
+        end
+    end
+    if closest then
+        GraceCache.safeZoneArrow.label.Text = "Safe Zone: " .. math.floor(dist) .. " studs (" .. closest.Name .. ")"
+    else
+        GraceCache.safeZoneArrow.label.Text = "Safe Zone: не знайдено"
+    end
+end)
+
+-- 6. AUTO HIDE
+local graceHideConn
+local function toggleGraceAutoHide(on)
+    if graceHideConn then graceHideConn:Disconnect() graceHideConn = nil end
+    if not on then return end
+    graceHideConn = RunService.Heartbeat:Connect(function()
+        if not State.GrAutoHide then return end
+        refreshGraceCache()
+        local hrp = getHRP()
+        if not hrp then return end
+        -- Якщо сутність поруч — ховаємось
+        local danger = false
+        for _, ent in ipairs(GraceCache.entities) do
+            local base = ent:IsA("Model") and ent:FindFirstChildWhichIsA("BasePart") or ent
+            if base and (base.Position - hrp.Position).Magnitude < 30 then
+                danger = true break
+            end
+        end
+        if danger then
+            local nearest, dist = nil, 15
+            for _, sz in ipairs(GraceCache.safeZones) do
+                local base = sz:IsA("Model") and sz:FindFirstChildWhichIsA("BasePart") or sz
+                if base then
+                    local d = (base.Position - hrp.Position).Magnitude
+                    if d < dist then nearest, dist = base, d end
+                end
+            end
+            if nearest then
+                hrp.CFrame = CFrame.new(nearest.Position + Vector3.new(0,2,0))
+                game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                task.wait(0.05)
+                game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
+            end
+        end
+    end)
+end
+
+-- 7. RUSH ALARM
+RunService.Heartbeat:Connect(function()
+    if not State.GrRushAlarm then return end
+    local now = tick()
+    if now - GraceCache.lastRushCheck < 1 then return end
+    GraceCache.lastRushCheck = now
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") or obj:IsA("Model") then
+            local n = obj.Name:lower()
+            if n:find("rush") or n:find("ambush") then
+                if not GraceCache.rushActive then
+                    GraceCache.rushActive = true
+                    Notify("RUSH ALARM", "Швидка сутність!", "warn")
+                end
+                return
+            end
+        end
+    end
+    GraceCache.rushActive = false
+end)
+
+-- 8. AMBIENT SOUND MUTER
+local function muteAmbientSounds(on)
+    if on then
+        for _, s in ipairs(SoundService:GetDescendants()) do
+            if s:IsA("Sound") and s.IsPlaying then
+                local n = s.Name:lower()
+                if n:find("ambient") or n:find("creep") or n:find("whisper") or n:find("step") or n:find("breath") then
+                    if not GraceCache.ambientMuted[s] then
+                        GraceCache.ambientMuted[s] = s.Volume
+                        s.Volume = 0
+                    end
+                end
+            end
+        end
+    else
+        for s, v in pairs(GraceCache.ambientMuted) do
+            if s and s.Parent then s.Volume = v end
+        end
+        GraceCache.ambientMuted = {}
+    end
+end
+
+-- 9. CROSSHAIR
+local function createGraceCrosshair()
+    if GraceCache.crosshairGui then return end
+    local g = Instance.new("ScreenGui")
+    g.Name = "ROCKET_GraceCrosshair"
+    g.ResetOnSpawn = false
+    g.Parent = CoreGui
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(0, 20, 0, 20)
+    f.Position = UDim2.new(0.5, -10, 0.5, -10)
+    f.BackgroundTransparency = 1
+    f.Parent = g
+    local h = Instance.new("Frame")
+    h.Size = UDim2.new(1, 0, 0, 2)
+    h.Position = UDim2.new(0, 0, 0.5, -1)
+    h.BackgroundColor3 = Color3.fromRGB(0, 255, 120)
+    h.BorderSizePixel = 0
+    h.Parent = f
+    local v = Instance.new("Frame")
+    v.Size = UDim2.new(0, 2, 1, 0)
+    v.Position = UDim2.new(0.5, -1, 0, 0)
+    v.BackgroundColor3 = Color3.fromRGB(0, 255, 120)
+    v.BorderSizePixel = 0
+    v.Parent = f
+    GraceCache.crosshairGui = g
+end
+local function toggleGraceCrosshair(on)
+    if on then
+        createGraceCrosshair()
+        GraceCache.crosshairGui.Enabled = true
+    elseif GraceCache.crosshairGui then
+        GraceCache.crosshairGui.Enabled = false
+    end
+end
+
+-- 10. WAYPOINT
+local function createGraceWaypoint()
+    if GraceCache.waypointHl then return end
+    local part = Instance.new("Part")
+    part.Size = Vector3.new(3, 3, 3)
+    part.Anchored = true
+    part.CanCollide = false
+    part.Material = Enum.Material.Neon
+    part.Color = Color3.fromRGB(0, 200, 255)
+    part.Name = "ROCKET_Waypoint"
+    part.Parent = workspace
+    local hl = Instance.new("Highlight")
+    hl.Adornee = part
+    hl.FillColor = Color3.fromRGB(0, 200, 255)
+    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+    hl.FillTransparency = 0.5
+    hl.Parent = part
+    GraceCache.waypointHl = part
+end
+local function setGraceWaypoint()
+    local hrp = getHRP()
+    if not hrp then return end
+    if GraceCache.waypointHl then GraceCache.waypointHl:Destroy() end
+    GraceCache.waypointHl = nil
+    createGraceWaypoint()
+    GraceCache.waypointHl.Position = hrp.Position + Vector3.new(0, 3, 0)
+    GraceCache.waypointPos = hrp.Position
+    Notify("Waypoint", "Мітку встановлено", "success")
+end
+
+-- 11. SPEED BOOST НА SHIFT
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.LeftShift and State.GrSpeedBoost then
+        local hum = getHum()
+        if hum then hum.WalkSpeed = State.Speed * 3 end
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.LeftShift and State.GrSpeedBoost then
+        local hum = getHum()
+        if hum then hum.WalkSpeed = State.Speed end
+    end
+end)
+
+-- 12. THIRD PERSON
+RunService.RenderStepped:Connect(function()
+    if not State.GrThirdPerson then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local offset = Camera.CFrame.LookVector * -State.GrThirdPersonDist
+    Camera.CFrame = CFrame.new(hrp.Position + offset, hrp.Position)
+end)
+
+-- 13. NO FOG / NO BLUR
+RunService.Heartbeat:Connect(function()
+    if State.GrNoFog then
+        Lighting.FogEnd = 1e6
+    end
+    if State.GrNoFog then
+        for _, e in ipairs(Lighting:GetChildren()) do
+            if e:IsA("BlurEffect") or e:IsA("ColorCorrectionEffect") then
+                e.Enabled = false
+            end
+        end
+    end
+end)
+
+-- 14. COORDS HUD
+local function createGraceCoords()
+    if GraceCache.coordsGui then return end
+    local g = Instance.new("ScreenGui")
+    g.Name = "ROCKET_GraceCoords"
+    g.ResetOnSpawn = false
+    g.Parent = CoreGui
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(0, 250, 0, 60)
+    l.Position = UDim2.new(0, 10, 0, 10)
+    l.BackgroundTransparency = 1
+    l.Text = "XYZ"
+    l.TextColor3 = Color3.fromRGB(200, 220, 255)
+    l.Font = Enum.Font.GothamBold
+    l.TextSize = 13
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.TextYAlignment = Enum.TextYAlignment.Top
+    l.Parent = g
+    GraceCache.coordsGui = {gui = g, label = l}
+end
+RunService.Heartbeat:Connect(function()
+    if not State.GrCoordsHud then
+        if GraceCache.coordsGui then GraceCache.coordsGui.gui.Enabled = false end
+        return
+    end
+    createGraceCoords()
+    GraceCache.coordsGui.gui.Enabled = true
+    local hrp = getHRP()
+    if hrp then
+        GraceCache.coordsGui.label.Text = string.format("X: %.0f\nY: %.0f\nZ: %.0f", hrp.Position.X, hrp.Position.Y, hrp.Position.Z)
+    end
+end)
+
+-- 15. ENTITY COUNTER
+RunService.Heartbeat:Connect(function()
+    if not State.GrEntityCounter then
+        if GraceCache.counterGui then GraceCache.counterGui.gui.Enabled = false end
+        return
+    end
+    if not GraceCache.counterGui then
+        local g = Instance.new("ScreenGui")
+        g.Name = "ROCKET_GraceCounter"
+        g.ResetOnSpawn = false
+        g.Parent = CoreGui
+        local l = Instance.new("TextLabel")
+        l.Size = UDim2.new(0, 250, 0, 22)
+        l.Position = UDim2.new(1, -260, 0, 10)
+        l.BackgroundTransparency = 1
+        l.Text = "Entities: 0"
+        l.TextColor3 = Color3.fromRGB(255, 200, 100)
+        l.Font = Enum.Font.GothamBold
+        l.TextSize = 13
+        l.Parent = g
+        GraceCache.counterGui = {gui = g, label = l}
+    end
+    GraceCache.counterGui.gui.Enabled = true
+    refreshGraceCache()
+    GraceCache.counterGui.label.Text = "Entities: " .. #GraceCache.entities .. " | Doors: " .. #GraceCache.doors
+end)
+
+-- 16. GRACE ROOM MARKER
+RunService.Heartbeat:Connect(function()
+    if not State.GrGraceRoomMarker then return end
+    refreshGraceCache()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") or obj:IsA("BasePart") then
+            local n = obj.Name:lower()
+            if n:find("graceroom") or n:find("grace_room") then
+                if not obj:FindFirstChild("ROCKET_GRoomMark") then
+                    local hl = Instance.new("Highlight")
+                    hl.Name = "ROCKET_GRoomMark"
+                    hl.Adornee = obj
+                    hl.FillColor = Color3.fromRGB(255, 100, 200)
+                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    hl.FillTransparency = 0.4
+                    hl.Parent = obj
+                end
+            end
+        end
+    end
+end)
+
+-- 17. AUTO CROUCH
+RunService.Heartbeat:Connect(function()
+    if not State.GrAutoCrouch then return end
+    local hum = getHum()
+    if hum then
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+            hum.CameraOffset = Vector3.new(0, -1.5, 0)
+        else
+            hum.CameraOffset = Vector3.new(0, 0, 0)
+        end
+    end
+end)
+
+-- 18. FOOTSTEP MUTE
+RunService.Heartbeat:Connect(function()
+    if not State.GrFootstepMute then return end
+    for _, s in ipairs(SoundService:GetDescendants()) do
+        if s:IsA("Sound") and s.IsPlaying then
+            local n = s.Name:lower()
+            if n:find("step") or n:find("foot") then
+                if not GraceCache.footstepMuted[s] then
+                    GraceCache.footstepMuted[s] = s.Volume
+                    s.Volume = 0
+                end
+            end
+        end
+    end
+end)
+
+-- 19. GRACE SKYBOX
+local graceSkyPresets = {
+    Default = {ClockTime=14, Brightness=2, Ambient=Color3.fromRGB(70,70,70), FogEnd=500, FogColor=Color3.fromRGB(200,200,200)},
+    Night = {ClockTime=0, Brightness=0.5, Ambient=Color3.fromRGB(20,20,30), FogEnd=300, FogColor=Color3.fromRGB(15,15,30)},
+    Blood = {ClockTime=0, Brightness=0.4, Ambient=Color3.fromRGB(80,10,10), FogEnd=250, FogColor=Color3.fromRGB(80,0,0)},
+    Fog = {ClockTime=13, Brightness=1, Ambient=Color3.fromRGB(150,150,150), FogEnd=100, FogColor=Color3.fromRGB(200,200,200)},
+    Calm = {ClockTime=14, Brightness=3, Ambient=Color3.fromRGB(180,180,180), FogEnd=2000, FogColor=Color3.fromRGB(220,220,255)},
+}
+local function applyGracePreset(name)
+    local p = graceSkyPresets[name]
+    if not p then return end
+    State.GrSkyPreset = name
+    Lighting.ClockTime = p.ClockTime
+    Lighting.Brightness = p.Brightness
+    Lighting.Ambient = p.Ambient
+    Lighting.FogEnd = p.FogEnd
+    Lighting.FogColor = p.FogColor
+end
+
+-- 20. SPEEDRUN TIMER
+local function createGraceTimer()
+    if GraceCache.timerGui then return end
+    local g = Instance.new("ScreenGui")
+    g.Name = "ROCKET_GraceTimer"
+    g.ResetOnSpawn = false
+    g.Parent = CoreGui
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(0, 250, 0, 22)
+    l.Position = UDim2.new(0.5, -125, 0, 36)
+    l.BackgroundTransparency = 1
+    l.Text = "00:00"
+    l.TextColor3 = Color3.fromRGB(255, 255, 150)
+    l.Font = Enum.Font.GothamBold
+    l.TextSize = 14
+    l.Parent = g
+    GraceCache.timerGui = {gui = g, label = l}
+end
+RunService.Heartbeat:Connect(function()
+    if not State.GrSpeedrunTimer then
+        if GraceCache.timerGui then GraceCache.timerGui.gui.Enabled = false end
+        return
+    end
+    createGraceTimer()
+    GraceCache.timerGui.gui.Enabled = true
+    if not State.GrSpeedrunStart then
+        State.GrSpeedrunStart = tick()
+    end
+    local elapsed = math.floor(tick() - State.GrSpeedrunStart)
+    local m = math.floor(elapsed / 60)
+    local s = elapsed % 60
+    GraceCache.timerGui.label.Text = string.format("⏱ %02d:%02d", m, s)
+end)
 
 -- ============================================================
 -- SERVER HOP
@@ -674,12 +1206,12 @@ local function serverHop()
     if not ok2 then Notify("Server Hop", "Помилка розбору JSON", "error") return end
     for _, srv in ipairs(data.data) do
         if srv.playing < srv.maxPlayers and srv.id ~= game.JobId then
-            Notify("Server Hop", "Перехід на новий сервер...", "info")
+            Notify("Server Hop", "Перехід...", "info")
             TeleportService:TeleportToPlaceInstance(game.PlaceId, srv.id, LocalPlayer)
             return
         end
     end
-    Notify("Server Hop", "Вільних серверів не знайдено", "warn")
+    Notify("Server Hop", "Вільних серверів немає", "warn")
 end
 
 -- ============================================================
@@ -691,7 +1223,6 @@ if old then old:Destroy() end
 local gui = Instance.new("ScreenGui")
 gui.Name = "ROCKET_HUB"
 gui.ResetOnSpawn = false
-gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = CoreGui
 
 local main = Instance.new("Frame")
@@ -703,7 +1234,6 @@ main.Active = true
 main.Draggable = true
 main.Parent = gui
 local mc = Instance.new("UICorner", main) mc.CornerRadius = UDim.new(0, 12)
-
 local stroke = Instance.new("UIStroke", main)
 stroke.Color = Color3.fromRGB(120, 90, 220)
 stroke.Thickness = 1.5
@@ -712,7 +1242,7 @@ local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 36)
 title.BackgroundColor3 = Color3.fromRGB(35, 25, 60)
 title.BorderSizePixel = 0
-title.Text = "🚀 ROCKET HUB  •  v3"
+title.Text = "🚀 ROCKET HUB  •  v4"
 title.TextColor3 = Color3.fromRGB(230, 220, 255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 14
@@ -730,7 +1260,6 @@ closeBtn.TextSize = 14
 closeBtn.Parent = title
 local cbc = Instance.new("UICorner", closeBtn) cbc.CornerRadius = UDim.new(0, 6)
 
--- Sidebar
 local sidebar = Instance.new("Frame")
 sidebar.Size = UDim2.new(0, 130, 1, -46)
 sidebar.Position = UDim2.new(0, 8, 0, 42)
@@ -756,7 +1285,6 @@ sbLay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     sidebarScroll.CanvasSize = UDim2.new(0, 0, 0, sbLay.AbsoluteContentSize.Y + 10)
 end)
 
--- Content
 local content = Instance.new("Frame")
 content.Size = UDim2.new(1, -154, 1, -46)
 content.Position = UDim2.new(0, 146, 0, 42)
@@ -934,14 +1462,12 @@ local function makeTextBox(parent, default, placeholder, cb)
     t.TextSize = 12
     t.Parent = parent
     local c = Instance.new("UICorner", t) c.CornerRadius = UDim.new(0, 6)
-    if cb then
-        t.FocusLost:Connect(function() cb(t.Text) end)
-    end
+    if cb then t.FocusLost:Connect(function() cb(t.Text) end) end
     return t
 end
 
 -- ============================================================
--- СТОРІНКА: DOORS
+-- ІНШІ СТОРІНКИ (Doors, Brookhaven, Killstreak, Arsenal, RIVALS, MM2, Build A Boat, Blox Fruits, Other, Settings)
 -- ============================================================
 local pDoors = newPage("Doors")
 makeLabel(pDoors, "— Doors —")
@@ -969,18 +1495,11 @@ makeButton(pDoors, "TP до найдальших дверей", function()
                 local d = (base.Position - hrp.Position).Magnitude
                 if d > dist then best, dist = base, d end
             end
-        end
-        if best then hrp.CFrame = CFrame.new(best.Position + Vector3.new(0,4,0)) end
+        end        if best then hrp.CFrame = CFrame.new(best.Position + Vector3.new(0,4,0)) end
     end)
 end)
-makeButton(pDoors, "Rejoin", function()
-    Notify("Rejoin", "Перезахід...", "info")
-    TeleportService:Teleport(game.PlaceId, LocalPlayer)
-end)
+makeButton(pDoors, "Rejoin", function() Notify("Rejoin", "Перезахід...", "info") TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
 
--- ============================================================
--- СТОРІНКА: BROOKHAVEN
--- ============================================================
 local pBH = newPage("Brookhaven")
 makeLabel(pBH, "— Небо —")
 makeButton(pBH, "☀️ Default", function() safe("Sky", function() applyBHPreset("Default") end) end)
@@ -992,22 +1511,13 @@ makeButton(pBH, "☢️ Toxic", function() safe("Sky", function() applyBHPreset(
 makeLabel(pBH, "— Персонаж —")
 makeSlider(pBH, "Speed", 16, 300, State.Speed, function(v) State.Speed = v applyHumanoid() end)
 makeSlider(pBH, "Jump", 50, 400, State.Jump, function(v) State.Jump = v applyHumanoid() end)
-makeToggle(pBH, "Fly", false, function(on)
-    State.Fly = on
-    if on then startFly() else stopFly() end
-end)
+makeToggle(pBH, "Fly", false, function(on) State.Fly = on if on then startFly() else stopFly() end end)
 makeSlider(pBH, "Fly Speed", 50, 500, 120, function(v) State.FlySpeed = v end)
 makeToggle(pBH, "Noclip", false, function(on) State.Noclip = on end)
 makeToggle(pBH, "ESP Players", false, function(on) State.ESP = on end)
 makeToggle(pBH, "Fullbright", false, function(on) State.Fullbright = on end)
-makeButton(pBH, "Rejoin", function()
-    Notify("Rejoin", "Перезахід...", "info")
-    TeleportService:Teleport(game.PlaceId, LocalPlayer)
-end)
+makeButton(pBH, "Rejoin", function() Notify("Rejoin", "Перезахід...", "info") TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
 
--- ============================================================
--- СТОРІНКА: KILLSTREAK
--- ============================================================
 local pKS = newPage("Killstreak")
 makeLabel(pKS, "— Killstreak (safe) —")
 makeToggle(pKS, "ESP", false, function(on) State.ESP = on end)
@@ -1017,9 +1527,6 @@ makeToggle(pKS, "Camera Lock (Q)", false, function(on) State.KSCameraLock = on e
 makeSlider(pKS, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
 makeButton(pKS, "Server Hop", serverHop)
 
--- ============================================================
--- СТОРІНКА: ARSENAL
--- ============================================================
 local pAr = newPage("Arsenal")
 makeLabel(pAr, "— Arsenal —")
 makeToggle(pAr, "ESP Players", false, function(on) State.ArEsp = on end)
@@ -1027,11 +1534,8 @@ makeToggle(pAr, "Tracers", false, function(on) State.ArTracers = on end)
 makeToggle(pAr, "Fullbright", false, function(on) State.Fullbright = on end)
 makeSlider(pAr, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
 
--- ============================================================
--- СТОРІНКА: RIVALS
--- ============================================================
 local pRv = newPage("RIVALS")
-makeLabel(pRv, "— RIVALS (safe) —")
+makeLabel(pRv, "— RIVALS —")
 makeToggle(pRv, "ESP Players", false, function(on) State.RvEsp = on end)
 makeToggle(pRv, "Tracers", false, function(on) State.RvTracers = on end)
 makeToggle(pRv, "Team Check", true, function(on) State.RvTeamCheck = on end)
@@ -1040,9 +1544,6 @@ makeToggle(pRv, "Fullbright", false, function(on) State.Fullbright = on end)
 makeSlider(pRv, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
 makeButton(pRv, "Server Hop", serverHop)
 
--- ============================================================
--- СТОРІНКА: MM2
--- ============================================================
 local pMm = newPage("MM2")
 makeLabel(pMm, "— Murder Mystery 2 —")
 makeToggle(pMm, "ESP Players", false, function(on) State.MmEsp = on end)
@@ -1057,10 +1558,7 @@ makeButton(pMm, "TP до гравця", function()
     for _, child in ipairs(pMm:GetChildren()) do
         if child:IsA("TextBox") then name = child.Text end
     end
-    if name == "" then
-        Notify("TP", "Введи ім'я гравця", "warn")
-        return
-    end
+    if name == "" then Notify("TP", "Введи ім'я", "warn") return end
     tpToPlayer(name)
 end)
 makeButton(pMm, "TP до випадкового", function()
@@ -1075,62 +1573,93 @@ makeButton(pMm, "TP до випадкового", function()
         local hrp = getHRP()
         if hrp and #list > 0 then
             hrp.CFrame = list[math.random(1, #list)].CFrame + Vector3.new(0,2,0)
-            Notify("TP", "Переміщено до випадкового гравця", "success")
+            Notify("TP", "Переміщено", "success")
         end
     end)
 end)
 makeButton(pMm, "Server Hop", serverHop)
 
--- ============================================================
--- СТОРІНКА: BUILD A BOAT
--- ============================================================
 local pBa = newPage("Build A Boat")
 makeLabel(pBa, "— Build A Boat For Treasure —")
 makeToggle(pBa, "ESP Players", false, function(on) State.BaEsp = on end)
 makeToggle(pBa, "Tracers", false, function(on) State.BaTracers = on end)
-makeToggle(pBa, "Auto Collect Treasure", false, function(on)
-    State.BaAutoCollect = on
-    if on then baAutoCollect() end
-end)
+makeToggle(pBa, "Auto Collect Treasure", false, function(on) State.BaAutoCollect = on if on then baAutoCollect() end end)
 makeToggle(pBa, "Fullbright", false, function(on) State.Fullbright = on end)
 makeSlider(pBa, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
 makeButton(pBa, "Server Hop", serverHop)
-makeButton(pBa, "Rejoin", function()
-    Notify("Rejoin", "Перезахід...", "info")
-    TeleportService:Teleport(game.PlaceId, LocalPlayer)
-end)
+makeButton(pBa, "Rejoin", function() Notify("Rejoin", "Перезахід...", "info") TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
 
 -- ============================================================
--- СТОРІНКА: GRACE
+-- ГРАЦЕ — 20 ФУНКЦІЙ
 -- ============================================================
 local pGr = newPage("Grace")
-makeLabel(pGr, "— Grace —")
+makeLabel(pGr, "— ESP та сенсори —")
 makeToggle(pGr, "ESP Players", false, function(on) State.GrEsp = on end)
 makeToggle(pGr, "Tracers", false, function(on) State.GrTracers = on end)
-makeToggle(pGr, "Highlight Entities/Doors", false, function(on) toggleGraceHighlight(on) end)
-makeToggle(pGr, "Fullbright", false, function(on) State.Fullbright = on end)
+makeToggle(pGr, "Highlight Entities/Doors", false, function(on)
+    toggleGraceHighlight(on)
+    toggleGraceDoorHighlight(on)
+end)
+makeToggle(pGr, "Item ESP", false, toggleGraceItemEsp)
+makeToggle(pGr, "Entity Distance HUD", false, function(on) State.GrEntityDistance = on end)
+makeToggle(pGr, "Entity Counter", false, function(on) State.GrEntityCounter = on end)
+
+makeLabel(pGr, "— Тривоги —")
+makeToggle(pGr, "Entity Alarm", false, function(on) State.GrEntityAlarm = on end)
+makeSlider(pGr, "Alarm Radius", 10, 150, 40, function(v) State.GrEntityAlarmRadius = v end)
+makeToggle(pGr, "Rush Alarm", false, function(on) State.GrRushAlarm = on end)
+
+makeLabel(pGr, "— Виживання —")
+makeToggle(pGr, "Safe Zone Finder", false, function(on) State.GrSafeZoneFinder = on end)
+makeToggle(pGr, "Auto Hide", false, toggleGraceAutoHide)
+makeToggle(pGr, "Auto Crouch (Ctrl)", false, function(on) State.GrAutoCrouch = on end)
+makeToggle(pGr, "Footstep Mute", false, function(on) State.GrFootstepMute = on end)
+
+makeLabel(pGr, "— Камера та HUD —")
 makeSlider(pGr, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
+makeToggle(pGr, "Crosshair", false, toggleGraceCrosshair)
+makeToggle(pGr, "Coords HUD", false, function(on) State.GrCoordsHud = on end)
+makeToggle(pGr, "Third Person", false, function(on) State.GrThirdPerson = on end)
+makeSlider(pGr, "TP Distance", 3, 20, 8, function(v) State.GrThirdPersonDist = v end)
+
+makeLabel(pGr, "— Оточення —")
+makeToggle(pGr, "Fullbright", false, function(on) State.GrFullbright = on State.Fullbright = on end)
+makeToggle(pGr, "No Fog / No Blur", false, function(on) State.GrNoFog = on end)
+makeButton(pGr, "☀️ Sky: Calm", function() safe("Sky", function() applyGracePreset("Calm") end) end)
+makeButton(pGr, "🌙 Sky: Night", function() safe("Sky", function() applyGracePreset("Night") end) end)
+makeButton(pGr, "🩸 Sky: Blood", function() safe("Sky", function() applyGracePreset("Blood") end) end)
+makeButton(pGr, "🌫 Sky: Fog", function() safe("Sky", function() applyGracePreset("Fog") end) end)
+
+makeLabel(pGr, "— Рух —")
 makeSlider(pGr, "Speed", 16, 60, 20, function(v) State.Speed = v applyHumanoid() end)
+makeToggle(pGr, "Speed Boost (LeftShift)", false, function(on) State.GrSpeedBoost = on end)
 makeToggle(pGr, "Noclip", false, function(on) State.Noclip = on end)
 makeToggle(pGr, "Inf Jump", false, function(on) State.InfJump = on end)
+
+makeLabel(pGr, "— Waypoint та Таймер —")
+makeButton(pGr, "📍 Поставити Waypoint", function() safe("Waypoint", setGraceWaypoint) end)
+makeButton(pGr, "🗑 Прибрати Waypoint", function()
+    if GraceCache.waypointHl then GraceCache.waypointHl:Destroy() GraceCache.waypointHl = nil end
+    Notify("Waypoint", "Мітку прибрано", "success")
+end)
+makeToggle(pGr, "Speedrun Timer", false, function(on)
+    State.GrSpeedrunTimer = on
+    if on then State.GrSpeedrunStart = tick() else State.GrSpeedrunStart = nil end
+end)
+makeButton(pGr, "🔄 Скинути таймер", function()
+    State.GrSpeedrunStart = tick()
+    Notify("Timer", "Таймер скинуто", "success")
+end)
+
 makeButton(pGr, "Server Hop", serverHop)
 
--- ============================================================
--- СТОРІНКА: BLOX FRUITS
--- ============================================================
 local pBF = newPage("Blox Fruits")
 makeLabel(pBF, "— Blox Fruits (у розробці) —")
 makeToggle(pBF, "ESP Players", false, function(on) State.ESP = on end)
-makeToggle(pBF, "Fly", false, function(on)
-    State.Fly = on
-    if on then startFly() else stopFly() end
-end)
+makeToggle(pBF, "Fly", false, function(on) State.Fly = on if on then startFly() else stopFly() end end)
 makeSlider(pBF, "Speed", 16, 300, State.Speed, function(v) State.Speed = v applyHumanoid() end)
 makeToggle(pBF, "Noclip", false, function(on) State.Noclip = on end)
 
--- ============================================================
--- СТОРІНКА: OTHER
--- ============================================================
 local pOther = newPage("Other")
 makeLabel(pOther, "— Загальні функції —")
 makeSlider(pOther, "Speed", 16, 500, State.Speed, function(v) State.Speed = v applyHumanoid() end)
@@ -1138,11 +1667,7 @@ makeSlider(pOther, "Jump", 50, 500, State.Jump, function(v) State.Jump = v apply
 makeSlider(pOther, "Gravity", 0, 500, State.Gravity, function(v) State.Gravity = v end)
 makeSlider(pOther, "Fly Speed", 50, 800, State.FlySpeed, function(v) State.FlySpeed = v end)
 makeSlider(pOther, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
-
-makeToggle(pOther, "Fly (WASD)", false, function(on)
-    State.Fly = on
-    if on then startFly() else stopFly() end
-end)
+makeToggle(pOther, "Fly (WASD)", false, function(on) State.Fly = on if on then startFly() else stopFly() end end)
 makeToggle(pOther, "Noclip", false, function(on) State.Noclip = on end)
 makeToggle(pOther, "Infinite Jump", false, function(on) State.InfJump = on end)
 makeToggle(pOther, "Gravity OFF (0)", false, function(on) State.GravityOff = on end)
@@ -1151,94 +1676,52 @@ makeToggle(pOther, "Tracers", false, function(on) State.Tracers = on end)
 makeToggle(pOther, "Fullbright", false, function(on) State.Fullbright = on end)
 makeToggle(pOther, "Click TP", false, function(on) State.ClickTP = on end)
 makeToggle(pOther, "Anti-AFK", true, function(on) State.AntiAFK = on end)
-
 makeLabel(pOther, "— Утиліти —")
-makeButton(pOther, "Reset Character", function()
-    safe("Reset", function()
-        local hum = getHum() if hum then hum.Health = 0 end
-    end)
-end)
-makeButton(pOther, "Rejoin", function()
-    Notify("Rejoin", "Перезахід...", "info")
-    TeleportService:Teleport(game.PlaceId, LocalPlayer)
-end)
+makeButton(pOther, "Reset Character", function() safe("Reset", function() local hum = getHum() if hum then hum.Health = 0 end end) end)
+makeButton(pOther, "Rejoin", function() Notify("Rejoin", "Перезахід...", "info") TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
 makeButton(pOther, "Server Hop", serverHop)
 makeButton(pOther, "Unload ROCKET HUB", function()
     stopFly()
     State.ESP = false State.Tracers = false State.RvEsp = false State.MmEsp = false State.BaEsp = false State.GrEsp = false
-    for _, d in pairs(espList) do
-        d.box:Remove() d.name:Remove()
-    end
+    for _, d in pairs(espList) do d.box:Remove() d.name:Remove() end
     for _, l in pairs(tracerList) do l:Remove() end
     for _, h in pairs(doorHL) do h:Destroy() end
     for _, h in pairs(itemHL) do h:Destroy() end
-    for _, h in pairs(graceHL) do h:Destroy() end
+    for _, h in pairs(GraceCache.entityHls) do h:Destroy() end
+    for _, h in pairs(GraceCache.doorHls) do h:Destroy() end
+    for _, h in pairs(GraceCache.itemHls) do h:Destroy() end
+    if GraceCache.waypointHl then GraceCache.waypointHl:Destroy() end
+    if GraceCache.crosshairGui then GraceCache.crosshairGui:Destroy() end
+    if GraceCache.coordsGui then GraceCache.coordsGui.gui:Destroy() end
+    if GraceCache.timerGui then GraceCache.timerGui.gui:Destroy() end
+    if GraceCache.counterGui then GraceCache.counterGui.gui:Destroy() end
+    if GraceCache.distanceGui then GraceCache.distanceGui.gui:Destroy() end
+    if GraceCache.safeZoneArrow then GraceCache.safeZoneArrow.gui:Destroy() end
     Notify("ROCKET", "Скрипт вивантажено", "success")
     task.wait(0.3)
     gui:Destroy()
     notifGui:Destroy()
 end, Color3.fromRGB(90, 30, 40))
 
--- ============================================================
--- СТОРІНКА: SETTINGS
--- ============================================================
 local pSet = newPage("⚙ Settings", true)
-
 makeLabel(pSet, "— Сповіщення —")
-
-makeToggle(pSet, "Звук сповіщень", Settings.NotifSound, function(on)
-    Settings.NotifSound = on
-end)
-
-makeSlider(pSet, "Гучність (%)", 0, 100, math.floor(Settings.NotifVolume*100), function(v)
-    Settings.NotifVolume = v / 100
-end)
-
-makeSlider(pSet, "Тривалість (сек)", 1, 15, Settings.NotifDuration, function(v)
-    Settings.NotifDuration = v
-end)
-
+makeToggle(pSet, "Звук сповіщень", Settings.NotifSound, function(on) Settings.NotifSound = on end)
+makeSlider(pSet, "Гучність (%)", 0, 100, math.floor(Settings.NotifVolume*100), function(v) Settings.NotifVolume = v / 100 end)
+makeSlider(pSet, "Тривалість (сек)", 1, 15, Settings.NotifDuration, function(v) Settings.NotifDuration = v end)
 makeLabel(pSet, "— Звукові ID —")
-makeLabel(pSet, "Встав rbxassetid або просто число", Color3.fromRGB(180,180,180))
-
-makeLabel(pSet, "Success Sound ID:", Color3.fromRGB(120,200,140))
-makeTextBox(pSet, Settings.SoundSuccess, "rbxassetid://...", function(text)
-    if text and text ~= "" then
-        Settings.SoundSuccess = text
-        Notify("Settings", "Success звук оновлено", "success")
-    end
-end)
-
-makeLabel(pSet, "Error Sound ID:", Color3.fromRGB(220,120,120))
-makeTextBox(pSet, Settings.SoundError, "rbxassetid://...", function(text)
-    if text and text ~= "" then
-        Settings.SoundError = text
-        Notify("Settings", "Error звук оновлено", "success")
-    end
-end)
-
-makeLabel(pSet, "Info Sound ID:", Color3.fromRGB(120,160,220))
-makeTextBox(pSet, Settings.SoundInfo, "rbxassetid://...", function(text)
-    if text and text ~= "" then
-        Settings.SoundInfo = text
-        Notify("Settings", "Info звук оновлено", "success")
-    end
-end)
-
-makeLabel(pSet, "Warn Sound ID:", Color3.fromRGB(220,200,120))
-makeTextBox(pSet, Settings.SoundWarn, "rbxassetid://...", function(text)
-    if text and text ~= "" then
-        Settings.SoundWarn = text
-        Notify("Settings", "Warn звук оновлено", "success")
-    end
-end)
-
+makeLabel(pSet, "Success:", Color3.fromRGB(120,200,140))
+makeTextBox(pSet, Settings.SoundSuccess, "rbxassetid://...", function(text) if text and text ~= "" then Settings.SoundSuccess = text Notify("Settings", "Success ID оновлено", "success") end end)
+makeLabel(pSet, "Error:", Color3.fromRGB(220,120,120))
+makeTextBox(pSet, Settings.SoundError, "rbxassetid://...", function(text) if text and text ~= "" then Settings.SoundError = text Notify("Settings", "Error ID оновлено", "success") end end)
+makeLabel(pSet, "Info:", Color3.fromRGB(120,160,220))
+makeTextBox(pSet, Settings.SoundInfo, "rbxassetid://...", function(text) if text and text ~= "" then Settings.SoundInfo = text Notify("Settings", "Info ID оновлено", "success") end end)
+makeLabel(pSet, "Warn:", Color3.fromRGB(220,200,120))
+makeTextBox(pSet, Settings.SoundWarn, "rbxassetid://...", function(text) if text and text ~= "" then Settings.SoundWarn = text Notify("Settings", "Warn ID оновлено", "success") end end)
 makeLabel(pSet, "— Тестування —")
 makeButton(pSet, "Тест: Success", function() Notify("Тест", "Це успіх!", "success") end)
 makeButton(pSet, "Тест: Error", function() Notify("Тест", "Це помилка!", "error") end)
 makeButton(pSet, "Тест: Warn", function() Notify("Тест", "Це попередження!", "warn") end)
 makeButton(pSet, "Тест: Info", function() Notify("Тест", "Це інформація", "info") end)
-
 makeLabel(pSet, "— Скидання —")
 makeButton(pSet, "Скинути налаштування", function()
     Settings.NotifSound = true
@@ -1248,23 +1731,22 @@ makeButton(pSet, "Скинути налаштування", function()
     Settings.SoundError   = "rbxassetid://5159527953"
     Settings.SoundInfo    = "rbxassetid://4590662766"
     Settings.SoundWarn    = "rbxassetid://5159527953"
-    Notify("Settings", "Налаштування скинуто. Перезапусти скрипт.", "warn")
+    Notify("Settings", "Скинуто. Перезапусти скрипт.", "warn")
 end, Color3.fromRGB(80, 40, 40))
 
 -- ============================================================
--- ДЕФОЛТНА СТОРІНКА
+-- ДЕФОЛТ + СВОРАЧИВАНИЕ
 -- ============================================================
 for n, p in pairs(pages) do
     p.page.Visible = (n == "Other")
     p.btn.BackgroundColor3 = (n == "Other") and Color3.fromRGB(120,80,200) or (p.isSettings and Color3.fromRGB(60,40,90) or Color3.fromRGB(30,32,45))
 end
 
--- Сворачивание
 local opened = true
 closeBtn.MouseButton1Click:Connect(function()
     opened = not opened
     if opened then
-        TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size=UDim2.new(0,620,0,500)}):Play()
+        TweenService:Create(main, TweenInfo.new(0.3, Enum.Enum.EasingStyle.Quint), {Size=UDim2.new(0,620,0,500)}):Play()
         sidebar.Visible = true content.Visible = true
         closeBtn.Text = "—"
     else
@@ -1274,5 +1756,5 @@ closeBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-Notify("ROCKET HUB v3", "Завантажено! Плейсів: 10 + Settings", "success")
-print("[ROCKET HUB v3] Loaded — Doors, Brookhaven, Killstreak, Arsenal, RIVALS, MM2, Build A Boat, Grace, Blox Fruits, Other, Settings")
+Notify("ROCKET HUB v4", "Grace: 20 функцій додано!", "success")
+print("[ROCKET HUB v4] Loaded — Grace Extended (20 функцій)")
