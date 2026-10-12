@@ -1,6 +1,6 @@
--- ROCKET HUB v1 — універсальний чит-хаб
+-- ROCKET HUB v2 — універсальний чит-хаб
 -- Інжектор: Solara (або будь-який з loadstring)
--- Вставити після заходу в гру, потім тицяти на вкладки плейсів
+-- Оновлення: сповіщення + RIVALS + MM2
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -10,6 +10,7 @@ local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
+local SoundService = game:GetService("SoundService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
@@ -17,14 +18,12 @@ local Camera = workspace.CurrentCamera
 -- СТАН
 -- ============================================================
 local State = {
-    -- Загальне
     Speed = 16,
     Jump = 50,
     Gravity = 196.2,
     FlySpeed = 120,
     FOV = 70,
 
-    -- Toggles
     Fly = false,
     Noclip = false,
     InfJump = false,
@@ -34,21 +33,27 @@ local State = {
     GravityOff = false,
     ClickTP = false,
     AntiAFK = true,
+    NotifSound = true,
 
-    -- Doors
     DoorsAutoHide = false,
     DoorsHighlights = false,
     DoorsRushAlarm = false,
 
-    -- Brookhaven
     BHSkyPreset = "Default",
 
-    -- Killstreak
     KSCameraLock = false,
 
-    -- Arsenal
     ArEsp = false,
     ArTracers = false,
+
+    RvEsp = false,
+    RvTracers = false,
+    RvCamLock = false,
+    RvTeamCheck = true,
+
+    MmEsp = false,
+    MmTracers = false,
+    MmRoleEsp = true,
 }
 
 -- ============================================================
@@ -75,6 +80,146 @@ LocalPlayer.CharacterAdded:Connect(function()
     task.wait(0.5)
     applyHumanoid()
 end)
+
+-- ============================================================
+-- СИСТЕМА СПОВІЩЕНЬ
+-- ============================================================
+local notifGui = Instance.new("ScreenGui")
+notifGui.Name = "ROCKET_Notifs"
+notifGui.ResetOnSpawn = false
+notifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+notifGui.Parent = CoreGui
+
+local notifHolder = Instance.new("Frame")
+notifHolder.Size = UDim2.new(0, 320, 1, -40)
+notifHolder.Position = UDim2.new(1, -340, 0, 20)
+notifHolder.BackgroundTransparency = 1
+notifHolder.Parent = notifGui
+
+local notifLayout = Instance.new("UIListLayout", notifHolder)
+notifLayout.Padding = UDim.new(0, 8)
+notifLayout.SortOrder = Enum.SortOrder.LayoutOrder
+notifLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+
+local notifSoundSuccess = "rbxassetid://4590662766"
+local notifSoundError = "rbxassetid://5159527953"
+
+local function playNotifSound(id)
+    if not State.NotifSound then return end
+    local s = Instance.new("Sound")
+    s.SoundId = id
+    s.Volume = 0.5
+    s.Parent = SoundService
+    s:Play()
+    game:GetService("Debris"):AddItem(s, 2)
+end
+
+local notifColors = {
+    success = Color3.fromRGB(30, 150, 90),
+    error = Color3.fromRGB(180, 40, 60),
+    warn = Color3.fromRGB(200, 150, 30),
+    info = Color3.fromRGB(50, 100, 180),
+}
+
+local notifIcons = {
+    success = "✅",
+    error = "❌",
+    warn = "⚠️",
+    info = "ℹ️",
+}
+
+local function Notify(title, text, ntype)
+    ntype = ntype or "info"
+    local color = notifColors[ntype] or notifColors.info
+    local icon = notifIcons[ntype] or "ℹ️"
+
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1, 0, 0, 60)
+    card.BackgroundColor3 = Color3.fromRGB(20, 22, 32)
+    card.BackgroundTransparency = 1
+    card.BorderSizePixel = 0
+    card.Position = UDim2.new(1, 60, 0, 0)
+    card.Parent = notifHolder
+    local cc = Instance.new("UICorner", card) cc.CornerRadius = UDim.new(0, 8)
+
+    local stroke = Instance.new("UIStroke", card)
+    stroke.Color = color
+    stroke.Thickness = 1.5
+    stroke.Transparency = 0.2
+
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(0, 4, 1, 0)
+    bar.BackgroundColor3 = color
+    bar.BorderSizePixel = 0
+    bar.Parent = card
+    local bc = Instance.new("UICorner", bar) bc.CornerRadius = UDim.new(0, 8)
+
+    local iconL = Instance.new("TextLabel")
+    iconL.Size = UDim2.new(0, 30, 1, 0)
+    iconL.Position = UDim2.new(0, 8, 0, 0)
+    iconL.BackgroundTransparency = 1
+    iconL.Text = icon
+    iconL.TextSize = 20
+    iconL.Font = Enum.Font.GothamBold
+    iconL.TextColor3 = color
+    iconL.Parent = card
+
+    local titleL = Instance.new("TextLabel")
+    titleL.Size = UDim2.new(1, -50, 0, 22)
+    titleL.Position = UDim2.new(0, 42, 0, 6)
+    titleL.BackgroundTransparency = 1
+    titleL.Text = "ROCKET • " .. tostring(title)
+    titleL.TextColor3 = Color3.fromRGB(240, 235, 255)
+    titleL.Font = Enum.Font.GothamBold
+    titleL.TextSize = 13
+    titleL.TextXAlignment = Enum.TextXAlignment.Left
+    titleL.Parent = card
+
+    local textL = Instance.new("TextLabel")
+    textL.Size = UDim2.new(1, -50, 0, 22)
+    textL.Position = UDim2.new(0, 42, 0, 28)
+    textL.BackgroundTransparency = 1
+    textL.Text = tostring(text)
+    textL.TextColor3 = Color3.fromRGB(180, 180, 200)
+    textL.Font = Enum.Font.Gotham
+    textL.TextSize = 11
+    textL.TextXAlignment = Enum.TextXAlignment.Left
+    textL.TextWrapped = true
+    textL.Parent = card
+
+    -- Поява
+    TweenService:Create(card, TweenInfo.new(0.35, Enum.EasingStyle.Quint), {
+        BackgroundTransparency = 0,
+        Position = UDim2.new(0, 0, 0, 0),
+    }):Play()
+
+    if ntype == "success" then
+        playNotifSound(notifSoundSuccess)
+    elseif ntype == "error" then
+        playNotifSound(notifSoundError)
+    end
+
+    task.delay(4, function()
+        local t = TweenService:Create(card, TweenInfo.new(0.35, Enum.EasingStyle.Quint), {
+            BackgroundTransparency = 1,
+            Position = UDim2.new(1, 60, 0, 0),
+        })
+        t:Play()
+        TweenService:Create(stroke, TweenInfo.new(0.35), {Transparency = 1}):Play()
+        t.Completed:Wait()
+        card:Destroy()
+    end)
+end
+
+-- Обгортка для безпечного виклику
+local function safe(label, fn)
+    local ok, err = pcall(fn)
+    if ok then
+        Notify(label, "Успішно активовано", "success")
+    else
+        Notify(label, "Помилка: " .. tostring(err), "error")
+    end
+end
 
 -- ============================================================
 -- FLY
@@ -173,8 +318,8 @@ local function createESP(player)
         local d = espList[player]
         local l = tracerList[player]
         local char = player.Character
-        local enabled = State.ESP or State.ArEsp
-        local tracerOn = State.Tracers or State.ArTracers
+        local enabled = State.ESP or State.ArEsp or State.RvEsp or State.MmEsp
+        local tracerOn = State.Tracers or State.ArTracers or State.RvTracers or State.MmTracers
 
         if not d then return end
         if not char or (not enabled and not tracerOn) then
@@ -198,8 +343,30 @@ local function createESP(player)
                 d.box.Size = Vector2.new(w,h)
                 d.box.Position = Vector2.new(pos.X - w/2, pos.Y - h/2)
                 d.box.Visible = true
+
+                -- Підпис: ім'я + роль (MM2)
+                local labelText = player.Name
+                if State.MmRoleEsp then
+                    local role = "Innocent"
+                    if player.Backpack then
+                        for _, tool in ipairs(player.Backpack:GetChildren()) do
+                            if tool.Name:lower():find("knife") then role = "Murderer" end
+                            if tool.Name:lower():find("gun") then role = "Sheriff" end
+                        end
+                    end
+                    if char then
+                        for _, tool in ipairs(char:GetChildren()) do
+                            if tool:IsA("Tool") then
+                                if tool.Name:lower():find("knife") then role = "Murderer" end
+                                if tool.Name:lower():find("gun") then role = "Sheriff" end
+                            end
+                        end
+                    end
+                    labelText = player.Name .. " [" .. role .. "]"
+                end
+
                 d.name.Position = Vector2.new(pos.X, pos.Y - h/2 - 16)
-                d.name.Text = player.Name
+                d.name.Text = labelText
                 d.name.Visible = true
             else
                 d.box.Visible = false
@@ -287,7 +454,6 @@ local function refreshCache()
     end
 end
 
--- Auto Hide
 local hideConn
 local function toggleDoorsAutoHide(on)
     State.DoorsAutoHide = on
@@ -317,7 +483,6 @@ local function toggleDoorsAutoHide(on)
     end
 end
 
--- Highlights
 local doorHL, itemHL = {}, {}
 local function toggleDoorsHighlights(on)
     State.DoorsHighlights = on
@@ -345,7 +510,6 @@ local function toggleDoorsHighlights(on)
     end
 end
 
--- Rush Alarm
 RunService.Heartbeat:Connect(function()
     if not State.DoorsRushAlarm then return end
     local now = tick()
@@ -360,9 +524,9 @@ RunService.Heartbeat:Connect(function()
                     local s = Instance.new("Sound")
                     s.SoundId = "rbxassetid://9125402735"
                     s.Volume = 2
-                    s.Parent = game:GetService("SoundService")
+                    s.Parent = SoundService
                     s:Play()
-                    print("[RUSH] Rush/Ambush виявлено!")
+                    Notify("Rush Alarm", "Rush/Ambush виявлено!", "warn")
                 end
                 return
             end
@@ -395,10 +559,10 @@ local function applyBHPreset(name)
 end
 
 -- ============================================================
--- KILLSTREAK CAMERA LOCK
+-- CAMERA LOCK (для Killstreak / RIVALS)
 -- ============================================================
 local ksTarget = nil
-local function ksFindEnemy()
+local function ksFindEnemy(teamCheck)
     local closest, dist = nil, math.huge
     local myHRP = getHRP() if not myHRP then return nil end
     for _, p in ipairs(Players:GetPlayers()) do
@@ -406,7 +570,11 @@ local function ksFindEnemy()
             local h = p.Character:FindFirstChildOfClass("Humanoid")
             local hrp = p.Character:FindFirstChild("HumanoidRootPart")
             if h and hrp and h.Health > 0 then
-                if p.Team == nil or LocalPlayer.Team == nil or p.Team ~= LocalPlayer.Team then
+                local isEnemy = true
+                if teamCheck and p.Team ~= nil and LocalPlayer.Team ~= nil then
+                    isEnemy = (p.Team ~= LocalPlayer.Team)
+                end
+                if isEnemy then
                     local d = (hrp.Position - myHRP.Position).Magnitude
                     if d < dist then closest, dist = p.Character, d end
                 end
@@ -416,9 +584,12 @@ local function ksFindEnemy()
     return closest
 end
 RunService.RenderStepped:Connect(function()
-    if not State.KSCameraLock then return end
+    local active = State.KSCameraLock or State.RvCamLock
+    if not active then return end
     if UserInputService:IsKeyDown(Enum.KeyCode.Q) then
-        if not ksTarget or not ksTarget.Parent then ksTarget = ksFindEnemy() end
+        if not ksTarget or not ksTarget.Parent then
+            ksTarget = ksFindEnemy(State.RvTeamCheck and State.RvCamLock)
+        end
         if ksTarget then
             local head = ksTarget:FindFirstChild("Head") or ksTarget:FindFirstChild("HumanoidRootPart")
             if head then
@@ -429,19 +600,42 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
+-- MM2 — TP до гравців
+-- ============================================================
+local function tpToPlayer(nameQuery)
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Name:lower():find(nameQuery:lower()) then
+            if p.Character then
+                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                local myHRP = getHRP()
+                if hrp and myHRP then
+                    myHRP.CFrame = hrp.CFrame + Vector3.new(0, 2, 0)
+                    Notify("TP", "Переміщено до " .. p.Name, "success")
+                    return
+                end
+            end
+        end
+    end
+    Notify("TP", "Гравця не знайдено: " .. nameQuery, "error")
+end
+
+-- ============================================================
 -- SERVER HOP
 -- ============================================================
 local function serverHop()
     local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
     local ok, res = pcall(function() return game:HttpGet(url) end)
-    if not ok then return end
-    local data = HttpService:JSONDecode(res)
+    if not ok then Notify("Server Hop", "Помилка запиту", "error") return end
+    local ok2, data = pcall(function() return HttpService:JSONDecode(res) end)
+    if not ok2 then Notify("Server Hop", "Помилка розбору JSON", "error") return end
     for _, srv in ipairs(data.data) do
         if srv.playing < srv.maxPlayers and srv.id ~= game.JobId then
+            Notify("Server Hop", "Перехід на новий сервер...", "info")
             TeleportService:TeleportToPlaceInstance(game.PlaceId, srv.id, LocalPlayer)
             return
         end
     end
+    Notify("Server Hop", "Вільних серверів не знайдено", "warn")
 end
 
 -- ============================================================
@@ -474,7 +668,7 @@ local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 36)
 title.BackgroundColor3 = Color3.fromRGB(35, 25, 60)
 title.BorderSizePixel = 0
-title.Text = "🚀 ROCKET HUB  •  v1  •  Solara ready"
+title.Text = "🚀 ROCKET HUB  •  v2"
 title.TextColor3 = Color3.fromRGB(230, 220, 255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 14
@@ -492,7 +686,6 @@ closeBtn.TextSize = 14
 closeBtn.Parent = title
 local cbc = Instance.new("UICorner", closeBtn) cbc.CornerRadius = UDim.new(0, 6)
 
--- Ліва панель — вибір плейсу
 local sidebar = Instance.new("Frame")
 sidebar.Size = UDim2.new(0, 130, 1, -46)
 sidebar.Position = UDim2.new(0, 8, 0, 42)
@@ -506,7 +699,6 @@ sbLay.Padding = UDim.new(0, 4)
 sbLay.SortOrder = Enum.SortOrder.LayoutOrder
 sbLay.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
--- Права панель — вміст плейсу
 local content = Instance.new("Frame")
 content.Size = UDim2.new(1, -154, 1, -46)
 content.Position = UDim2.new(0, 146, 0, 42)
@@ -614,7 +806,7 @@ local function makeToggle(parent, text, default, cb)
     b.MouseButton1Click:Connect(function()
         on = not on
         upd()
-        cb(on)
+        safe(text, function() cb(on) end)
     end)
     return b
 end
@@ -683,22 +875,27 @@ makeToggle(pDoors, "Highlight Doors/Items", false, toggleDoorsHighlights)
 makeToggle(pDoors, "Rush Alarm", false, function(on) State.DoorsRushAlarm = on end)
 makeToggle(pDoors, "Fullbright", false, function(on) State.Fullbright = on end)
 makeButton(pDoors, "TP вгору на 100 studs", function()
-    local hrp = getHRP() if hrp then hrp.CFrame = hrp.CFrame + Vector3.new(0,100,0) end
+    safe("TP вгору", function()
+        local hrp = getHRP() if hrp then hrp.CFrame = hrp.CFrame + Vector3.new(0,100,0) end
+    end)
 end)
 makeButton(pDoors, "TP до найдальших дверей", function()
-    refreshCache()
-    local hrp = getHRP() if not hrp then return end
-    local best, dist = nil, 0
-    for _, obj in ipairs(Cache.doors) do
-        local base = obj:IsA("Model") and obj:FindFirstChildWhichIsA("BasePart") or obj
-        if base then
-            local d = (base.Position - hrp.Position).Magnitude
-            if d > dist then best, dist = base, d end
+    safe("TP до дверей", function()
+        refreshCache()
+        local hrp = getHRP() if not hrp then return end
+        local best, dist = nil, 0
+        for _, obj in ipairs(Cache.doors) do
+            local base = obj:IsA("Model") and obj:FindFirstChildWhichIsA("BasePart") or obj
+            if base then
+                local d = (base.Position - hrp.Position).Magnitude
+                if d > dist then best, dist = base, d end
+            end
         end
-    end
-    if best then hrp.CFrame = CFrame.new(best.Position + Vector3.new(0,4,0)) end
+        if best then hrp.CFrame = CFrame.new(best.Position + Vector3.new(0,4,0)) end
+    end)
 end)
 makeButton(pDoors, "Rejoin", function()
+    Notify("Rejoin", "Перезахід...", "info")
     TeleportService:Teleport(game.PlaceId, LocalPlayer)
 end)
 
@@ -707,12 +904,12 @@ end)
 -- ============================================================
 local pBH = newPage("Brookhaven")
 makeLabel(pBH, "— Небо —")
-makeButton(pBH, "☀️ Default", function() applyBHPreset("Default") end)
-makeButton(pBH, "🌙 Night", function() applyBHPreset("Night") end)
-makeButton(pBH, "🌅 Sunset", function() applyBHPreset("Sunset") end)
-makeButton(pBH, "🩸 Blood Moon", function() applyBHPreset("BloodMoon") end)
-makeButton(pBH, "🌌 Cyberpunk", function() applyBHPreset("Cyberpunk") end)
-makeButton(pBH, "☢️ Toxic", function() applyBHPreset("Toxic") end)
+makeButton(pBH, "☀️ Default", function() safe("Sky", function() applyBHPreset("Default") end) end)
+makeButton(pBH, "🌙 Night", function() safe("Sky", function() applyBHPreset("Night") end) end)
+makeButton(pBH, "🌅 Sunset", function() safe("Sky", function() applyBHPreset("Sunset") end) end)
+makeButton(pBH, "🩸 Blood Moon", function() safe("Sky", function() applyBHPreset("BloodMoon") end) end)
+makeButton(pBH, "🌌 Cyberpunk", function() safe("Sky", function() applyBHPreset("Cyberpunk") end) end)
+makeButton(pBH, "☢️ Toxic", function() safe("Sky", function() applyBHPreset("Toxic") end) end)
 makeLabel(pBH, "— Персонаж —")
 makeSlider(pBH, "Speed", 16, 300, State.Speed, function(v) State.Speed = v applyHumanoid() end)
 makeSlider(pBH, "Jump", 50, 400, State.Jump, function(v) State.Jump = v applyHumanoid() end)
@@ -724,7 +921,10 @@ makeSlider(pBH, "Fly Speed", 50, 500, 120, function(v) State.FlySpeed = v end)
 makeToggle(pBH, "Noclip", false, function(on) State.Noclip = on end)
 makeToggle(pBH, "ESP Players", false, function(on) State.ESP = on end)
 makeToggle(pBH, "Fullbright", false, function(on) State.Fullbright = on end)
-makeButton(pBH, "Rejoin", function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+makeButton(pBH, "Rejoin", function()
+    Notify("Rejoin", "Перезахід...", "info")
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+end)
 
 -- ============================================================
 -- СТОРІНКА: KILLSTREAK
@@ -747,6 +947,70 @@ makeToggle(pAr, "ESP Players", false, function(on) State.ArEsp = on end)
 makeToggle(pAr, "Tracers", false, function(on) State.ArTracers = on end)
 makeToggle(pAr, "Fullbright", false, function(on) State.Fullbright = on end)
 makeSlider(pAr, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
+
+-- ============================================================
+-- СТОРІНКА: RIVALS
+-- ============================================================
+local pRv = newPage("RIVALS")
+makeLabel(pRv, "— RIVALS (safe) —")
+makeToggle(pRv, "ESP Players", false, function(on) State.RvEsp = on end)
+makeToggle(pRv, "Tracers", false, function(on) State.RvTracers = on end)
+makeToggle(pRv, "Team Check", true, function(on) State.RvTeamCheck = on end)
+makeToggle(pRv, "Camera Lock (Q)", false, function(on) State.RvCamLock = on end)
+makeToggle(pRv, "Fullbright", false, function(on) State.Fullbright = on end)
+makeSlider(pRv, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
+makeButton(pRv, "Server Hop", serverHop)
+
+-- ============================================================
+-- СТОРІНКА: MM2 (Murder Mystery 2)
+-- ============================================================
+local pMm = newPage("MM2")
+makeLabel(pMm, "— Murder Mystery 2 —")
+makeToggle(pMm, "ESP Players", false, function(on) State.MmEsp = on end)
+makeToggle(pMm, "Role ESP (Knife/Gun)", true, function(on) State.MmRoleEsp = on end)
+makeToggle(pMm, "Tracers", false, function(on) State.MmTracers = on end)
+makeToggle(pMm, "Fullbright", false, function(on) State.Fullbright = on end)
+makeSlider(pMm, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
+makeLabel(pMm, "— TP до гравця (введи ім'я нижче) —")
+
+local tpNameBox = Instance.new("TextBox")
+tpNameBox.Size = UDim2.new(1, -10, 0, 30)
+tpNameBox.BackgroundColor3 = Color3.fromRGB(28, 30, 42)
+tpNameBox.Text = "ім'я гравця..."
+tpNameBox.TextColor3 = Color3.fromRGB(180, 180, 200)
+tpNameBox.Font = Enum.Font.Gotham
+tpNameBox.TextSize = 12
+tpNameBox.PlaceholderText = "ім'я гравця..."
+tpNameBox.Parent = pMm
+local tbc = Instance.new("UICorner", tpNameBox) tbc.CornerRadius = UDim.new(0, 6)
+
+makeButton(pMm, "TP до гравця", function()
+    local name = tpNameBox.Text
+    if name == "" or name == "ім'я гравця..." then
+        Notify("TP", "Введи ім'я гравця", "warn")
+        return
+    end
+    tpToPlayer(name)
+end)
+
+makeButton(pMm, "TP до випадкового", function()
+    safe("TP випадковий", function()
+        local list = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then
+                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then table.insert(list, hrp) end
+            end
+        end
+        local hrp = getHRP()
+        if hrp and #list > 0 then
+            hrp.CFrame = list[math.random(1, #list)].CFrame + Vector3.new(0,2,0)
+            Notify("TP", "Переміщено до випадкового гравця", "success")
+        end
+    end)
+end)
+
+makeButton(pMm, "Server Hop", serverHop)
 
 -- ============================================================
 -- СТОРІНКА: BLOX FRUITS
@@ -784,27 +1048,46 @@ makeToggle(pOther, "Tracers", false, function(on) State.Tracers = on end)
 makeToggle(pOther, "Fullbright", false, function(on) State.Fullbright = on end)
 makeToggle(pOther, "Click TP", false, function(on) State.ClickTP = on end)
 makeToggle(pOther, "Anti-AFK", true, function(on) State.AntiAFK = on end)
+makeToggle(pOther, "Notif Sound", true, function(on) State.NotifSound = on end)
 
 makeLabel(pOther, "— Утиліти —")
-makeButton(pOther, "Reset Character", function()
-    local hum = getHum() if hum then hum.Health = 0 end
+makeButton(pOther, "Test Notification (success)", function()
+    Notify("Тест", "Успіх!", "success")
 end)
-makeButton(pOther, "Rejoin", function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+makeButton(pOther, "Test Notification (error)", function()
+    Notify("Тест", "Помилка: щось зламалось", "error")
+end)
+makeButton(pOther, "Test Notification (warn)", function()
+    Notify("Тест", "Увага: перевір щось", "warn")
+end)
+
+makeButton(pOther, "Reset Character", function()
+    safe("Reset", function()
+        local hum = getHum() if hum then hum.Health = 0 end
+    end)
+end)
+makeButton(pOther, "Rejoin", function()
+    Notify("Rejoin", "Перезахід...", "info")
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+end)
 makeButton(pOther, "Server Hop", serverHop)
 makeButton(pOther, "Unload ROCKET HUB", function()
     stopFly()
-    State.ESP = false State.Tracers = false
+    State.ESP = false State.Tracers = false State.RvEsp = false State.MmEsp = false
     for _, d in pairs(espList) do
         d.box:Remove() d.name:Remove()
     end
     for _, l in pairs(tracerList) do l:Remove() end
     for _, h in pairs(doorHL) do h:Destroy() end
     for _, h in pairs(itemHL) do h:Destroy() end
+    Notify("ROCKET", "Скрипт вивантажено", "success")
+    task.wait(0.3)
     gui:Destroy()
+    notifGui:Destroy()
 end, Color3.fromRGB(90, 30, 40))
 
 -- ============================================================
--- ПОКАЗ ДЕФОЛТНОЇ СТОРІНКИ
+-- ДЕФОЛТНА СТОРІНКА
 -- ============================================================
 for n, p in pairs(pages) do
     p.page.Visible = (n == "Other")
@@ -826,4 +1109,8 @@ closeBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-print("[ROCKET HUB] Loaded — плейси: Doors, Brookhaven, Killstreak, Arsenal, Blox Fruits, Other")
+-- ============================================================
+-- СТАРТОВЕ ПОВІДОМЛЕННЯ
+-- ============================================================
+Notify("ROCKET HUB", "Завантажено успішно! Плейсів: 8", "success")
+print("[ROCKET HUB v2] Loaded — Doors, Brookhaven, Killstreak, Arsenal, RIVALS, MM2, Blox Fruits, Other")
