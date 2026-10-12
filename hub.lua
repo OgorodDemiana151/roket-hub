@@ -85,6 +85,9 @@ local State = {
     GrSkyPreset = "Default",
     GrSpeedrunTimer = false,
     GrSpeedrunStart = nil,
+    GrAutoOpenDoors = false,
+    GrLookAway = false,
+    GrAntiForcedLook = false,
 }
 
 -- ============================================================
@@ -1196,6 +1199,146 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ============================================================
+-- 21. AUTO OPEN DOORS (без E, з кешем, без лагів)
+-- ============================================================
+local autoDoorCache = {doors = {}, lastScan = 0, firedCooldown = {}}
+
+local function scanDoorsForAuto()
+    local now = tick()
+    if now - autoDoorCache.lastScan < 1.5 then return end
+    autoDoorCache.lastScan = now
+    autoDoorCache.doors = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") or obj:IsA("BasePart") then
+            local n = obj.Name:lower()
+            if n:find("door") and not n:find("frame") and not n:find("knob") then
+                table.insert(autoDoorCache.doors, obj)
+            end
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(function()
+    if not State.GrAutoOpenDoors then return end
+    local hrp = getHRP()
+    if not hrp then return end
+    scanDoorsForAuto()
+    local now = tick()
+    for _, door in ipairs(autoDoorCache.doors) do
+        local base = door:IsA("Model") and door:FindFirstChildWhichIsA("BasePart") or door
+        if base then
+            local d = (base.Position - hrp.Position).Magnitude
+            if d <= 12 then
+                local key = tostring(door)
+                if not autoDoorCache.firedCooldown[key] or now - autoDoorCache.firedCooldown[key] > 1 then
+                    autoDoorCache.firedCooldown[key] = now
+                    pcall(function()
+                        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                        task.wait(0.03)
+                        game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                    end)
+                    -- Також пробуємо через ClickDetector, якщо є
+                    pcall(function()
+                        for _, desc in ipairs(door:GetDescendants()) do
+                            if desc:IsA("ClickDetector") then
+                                fireclickdetector(desc)
+                            end
+                        end
+                    end)
+                end
+            end
+        end
+    end
+end)
+
+-- ============================================================
+-- 22. LOOK AWAY (Око, на яке НЕ МОЖНА дивитись)
+-- ============================================================
+-- Коли камера наближається до забороненого ока — примусово відвертаємо її.
+local lookAwayState = {lastCheck = 0, forbiddenEyes = {}}
+
+local function scanForbiddenEyes()
+    local now = tick()
+    if now - lookAwayState.lastCheck < 1.5 then return end
+    lookAwayState.lastCheck = now
+    lookAwayState.forbiddenEyes = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") or obj:IsA("BasePart") or obj:IsA("BillboardGui") then
+            local n = obj.Name:lower()
+            if n:find("eye") or n:find("gaze") or n:find("observer") then
+                table.insert(lookAwayState.forbiddenEyes, obj)
+            end
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if not State.GrLookAway then return end
+    scanForbiddenEyes()
+    for _, eye in ipairs(lookAwayState.forbiddenEyes) do
+        local base = eye:IsA("Model") and eye:FindFirstChildWhichIsA("BasePart") or (eye:IsA("BasePart") and eye) or nil
+        if base then
+            -- Вектор від камери до ока
+            local camPos = Camera.CFrame.Position
+            local eyePos = base.Position
+            local dirToEye = (eyePos - camPos).Unit
+            local lookDir = Camera.CFrame.LookVector
+            local dot = dirToEye:Dot(lookDir)
+            -- Якщо камера дивиться прямо на око (dot близько 1) — відвертаємо
+            if dot > 0.85 then
+                -- Примусово повертаємо камеру вбік
+                local side = Camera.CFrame.RightVector * (dot > 0.95 and -1 or 1)
+                local newLook = (lookDir + side * 2).Unit
+                Camera.CFrame = CFrame.new(camPos, camPos + newLook)
+            end
+        end
+    end
+end)
+
+-- ============================================================
+-- 23. ANTI-FORCED LOOK (Червоне око, яке ЗМУШУЄ дивитись)
+-- ============================================================
+-- Блокує будь-які спроби сервера/скрипта примусово повернути камеру.
+local antiForcedLook = {
+    lastCFrame = nil,
+    lastCheck = 0,
+    gracePeriod = 0.3,
+}
+
+RunService.RenderStepped:Connect(function()
+    if not State.GrAntiForcedLook then
+        antiForcedLook.lastCFrame = Camera.CFrame
+        return end
+    -- Якщо гравець сам не рухає мишку — а камера різко повертається до ока —
+    -- ми це блокуємо, повертаючи камеру туди, де вона була.
+    local now = tick()
+    if now - antiForcedLook.lastCheck < 0.05 then return end
+    antiForcedLook.lastCheck = now
+
+    local currentLook = Camera.CFrame.LookVector
+    -- Шукаємо червоне/синє/будь-яке око
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") or obj:IsA("BasePart") then
+            local n = obj.Name:lower()
+            if n:find("red") and n:find("eye") or n:find("forced") or n:find("hypno") then
+                local base = obj:IsA("Model") and obj:FindFirstChildWhichIsA("BasePart") or obj
+                if base then
+                    local dirToEye = (base.Position - Camera.CFrame.Position).Unit
+                    local dot = dirToEye:Dot(currentLook)
+                    if dot > 0.9 then
+                        -- Камера занадто сильно дивиться на око — відвертаємо
+                        local side = Camera.CFrame.RightVector * 3
+                        local newLook = (currentLook + side).Unit
+                        Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + newLook)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+
+-- ============================================================
 -- SERVER HOP
 -- ============================================================
 local function serverHop()
@@ -1636,6 +1779,10 @@ makeToggle(pGr, "Speed Boost (LeftShift)", false, function(on) State.GrSpeedBoos
 makeToggle(pGr, "Noclip", false, function(on) State.Noclip = on end)
 makeToggle(pGr, "Inf Jump", false, function(on) State.InfJump = on end)
 
+makeLabel(pGr, "— Двері та Очі —")
+makeToggle(pGr, "Auto Open Doors (без E)", false, function(on) State.GrAutoOpenDoors = on end)
+makeToggle(pGr, "Look Away від ока", false, function(on) State.GrLookAway = on end)
+makeToggle(pGr, "Anti-Forced Look (червоне око)", false, function(on) State.GrAntiForcedLook = on end)
 makeLabel(pGr, "— Waypoint та Таймер —")
 makeButton(pGr, "📍 Поставити Waypoint", function() safe("Waypoint", setGraceWaypoint) end)
 makeButton(pGr, "🗑 Прибрати Waypoint", function()
@@ -1697,6 +1844,10 @@ makeButton(pOther, "Unload ROCKET HUB", function()
     if GraceCache.counterGui then GraceCache.counterGui.gui:Destroy() end
     if GraceCache.distanceGui then GraceCache.distanceGui.gui:Destroy() end
     if GraceCache.safeZoneArrow then GraceCache.safeZoneArrow.gui:Destroy() end
+        for _, d in pairs(autoDoorCache.firedCooldown) do end
+    autoDoorCache.doors = {}
+    autoDoorCache.firedCooldown = {}
+    lookAwayState.forbiddenEyes = {}
     Notify("ROCKET", "Скрипт вивантажено", "success")
     task.wait(0.3)
     gui:Destroy()
@@ -1746,12 +1897,25 @@ local opened = true
 closeBtn.MouseButton1Click:Connect(function()
     opened = not opened
     if opened then
-        TweenService:Create(main, TweenInfo.new(0.3, Enum.Enum.EasingStyle.Quint), {Size=UDim2.new(0,620,0,500)}):Play()
-        sidebar.Visible = true content.Visible = true
+        -- Розгортаємо: спочатку показуємо елементи, потім анімуємо розмір
+        sidebar.Visible = true
+        content.Visible = true
+        TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {
+            Size = UDim2.new(0, 620, 0, 500)
+        }):Play()
         closeBtn.Text = "—"
     else
-        TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size=UDim2.new(0,620,0,36)}):Play()
-        sidebar.Visible = false content.Visible = false
+        -- Сворачиваем: анімуємо розмір, потім ховаємо елементи
+        local tween = TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {
+            Size = UDim2.new(0, 620, 0, 36)
+        })
+        tween:Play()
+        tween.Completed:Connect(function()
+            if not opened then
+                sidebar.Visible = false
+                content.Visible = false
+            end
+        end)
         closeBtn.Text = "+"
     end
 end)
