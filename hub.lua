@@ -14,6 +14,27 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 -- ============================================================
+-- ВИЗНАЧЕННЯ ПЛАТФОРМИ
+-- ============================================================
+local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local VIEWPORT = workspace.CurrentCamera.ViewportSize
+
+-- Адаптивні розміри
+local GUI_W = IS_MOBILE and math.min(VIEWPORT.X * 0.95, 420) or 620
+local GUI_H = IS_MOBILE and math.min(VIEWPORT.Y * 0.9, 440) or 500
+local BTN_H = IS_MOBILE and 40 or 30
+local SLIDER_H = IS_MOBILE and 56 or 46
+local FONT_SIZE = IS_MOBILE and 14 or 12
+
+-- Безпечний Parent для GUI (мобільні інжектори інколи блокують CoreGui)
+local function safeGuiParent(guiObj)
+    local ok = pcall(function() guiObj.Parent = CoreGui end)
+    if not ok then
+        guiObj.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end
+end
+
+-- ============================================================
 -- СТАН
 -- ============================================================
 local State = {
@@ -320,72 +341,120 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
--- ESP + TRACERS
+-- ESP + TRACERS (адаптивно: Drawing для ПК, Highlight для мобільного)
 -- ============================================================
 local espList = {}
 local tracerList = {}
+
 local function createESP(player)
     if player == LocalPlayer then return end
-    local box = Drawing.new("Square")
-    box.Thickness = 1.5 box.Color = Color3.fromRGB(255,80,80) box.Filled = false box.Visible = false
-    local nm = Drawing.new("Text")
-    nm.Size = 13 nm.Color = Color3.fromRGB(255,255,255) nm.Center = true nm.Outline = true nm.Visible = false
-    espList[player] = {box=box, name=nm}
 
-    local line = Drawing.new("Line")
-    line.Thickness = 1.5 line.Color = Color3.fromRGB(0,200,255) line.Transparency = 0.8 line.Visible = false
-    tracerList[player] = line
+    if not IS_MOBILE then
+        -- ПК: Drawing
+        local box = Drawing.new("Square")
+        box.Thickness = 1.5 box.Color = Color3.fromRGB(255,80,80) box.Filled = false box.Visible = false
+        local nm = Drawing.new("Text")
+        nm.Size = 13 nm.Color = Color3.fromRGB(255,255,255) nm.Center = true nm.Outline = true nm.Visible = false
+        espList[player] = {box=box, name=nm, mode="drawing"}
 
+        local line = Drawing.new("Line")
+        line.Thickness = 1.5 line.Color = Color3.fromRGB(0,200,255) line.Transparency = 0.8 line.Visible = false
+        tracerList[player] = line
+    else
+        -- Мобільний: Highlight + BillboardGui (без Drawing)
+        local hl = Instance.new("Highlight")
+        hl.Name = "ROCKET_ESP_" .. player.UserId
+        hl.FillColor = Color3.fromRGB(255, 80, 80)
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+        hl.FillTransparency = 0.6
+        hl.OutlineTransparency = 0.2
+        hl.Enabled = false
+        hl.Parent = workspace
+
+        local bb = Instance.new("BillboardGui")
+        bb.Name = "ROCKET_ESPN_" .. player.UserId
+        bb.Size = UDim2.new(0, 100, 0, 20)
+        bb.StudsOffset = Vector3.new(0, 3, 0)
+        bb.AlwaysOnTop = true
+        bb.Enabled = false
+
+        local txt = Instance.new("TextLabel")
+        txt.Size = UDim2.new(1, 0, 1, 0)
+        txt.BackgroundTransparency = 1
+        txt.Text = player.Name
+        txt.TextColor3 = Color3.fromRGB(255, 255, 255)
+        txt.Font = Enum.Font.GothamBold
+        txt.TextSize = 12
+        txt.TextStrokeTransparency = 0
+        txt.Parent = bb
+
+        espList[player] = {highlight = hl, billboard = bb, name = txt, mode="highlight"}
+    end
+
+    -- Оновлення (спільне)
     RunService.RenderStepped:Connect(function()
         local d = espList[player]
-        local l = tracerList[player]
+        if not d then return end
         local char = player.Character
         local enabled = State.ESP or State.ArEsp or State.RvEsp or State.MmEsp or State.BaEsp or State.GrEsp
         local tracerOn = State.Tracers or State.ArTracers or State.RvTracers or State.MmTracers or State.BaTracers or State.GrTracers
 
-        if not d then return end
-        if not char or (not enabled and not tracerOn) then
-            if d.box then d.box.Visible = false end
-            if d.name then d.name.Visible = false end
-            if l then l.Visible = false end
+        if not char then
+            if d.mode == "drawing" then
+                if d.box then d.box.Visible = false end
+                if d.name then d.name.Visible = false end
+            else
+                if d.highlight then d.highlight.Enabled = false end
+                if d.billboard then d.billboard.Enabled = false end
+            end
             return
         end
+
         local hrp = char:FindFirstChild("HumanoidRootPart")
         local head = char:FindFirstChild("Head")
+
+        -- Роль (MM2)
+        local labelText = player.Name
+        if State.MmRoleEsp then
+            local role = "Innocent"
+            if player.Backpack then
+                for _, tool in ipairs(player.Backpack:GetChildren()) do
+                    if tool.Name:lower():find("knife") then role = "Murderer" end
+                    if tool.Name:lower():find("gun") then role = "Sheriff" end
+                end
+            end
+            if char then
+                for _, tool in ipairs(char:GetChildren()) do
+                    if tool:IsA("Tool") then
+                        if tool.Name:lower():find("knife") then role = "Murderer" end
+                        if tool.Name:lower():find("gun") then role = "Sheriff" end
+                    end
+                end
+            end
+            labelText = player.Name .. " [" .. role .. "]"
+        end
+
         if not hrp or not head then
-            d.box.Visible=false d.name.Visible=false if l then l.Visible=false end
+            if d.mode == "drawing" then
+                if d.box then d.box.Visible = false end
+                if d.name then d.name.Visible = false end
+            else
+                if d.highlight then d.highlight.Enabled = false end
+                if d.billboard then d.billboard.Enabled = false end
+            end
             return
         end
-        local pos, on = Camera:WorldToViewportPoint(hrp.Position)
-        local hp = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
-        if on then
-            if enabled then
+
+        if d.mode == "drawing" then
+            -- ПК
+            local pos, on = Camera:WorldToViewportPoint(hrp.Position)
+            local hp = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
+            if on and enabled then
                 local h = math.abs(pos.Y - hp.Y)*2
                 local w = h/2
                 d.box.Size = Vector2.new(w,h)
                 d.box.Position = Vector2.new(pos.X - w/2, pos.Y - h/2)
                 d.box.Visible = true
-
-                local labelText = player.Name
-                if State.MmRoleEsp then
-                    local role = "Innocent"
-                    if player.Backpack then
-                        for _, tool in ipairs(player.Backpack:GetChildren()) do
-                            if tool.Name:lower():find("knife") then role = "Murderer" end
-                            if tool.Name:lower():find("gun") then role = "Sheriff" end
-                        end
-                    end
-                    if char then
-                        for _, tool in ipairs(char:GetChildren()) do
-                            if tool:IsA("Tool") then
-                                if tool.Name:lower():find("knife") then role = "Murderer" end
-                                if tool.Name:lower():find("gun") then role = "Sheriff" end
-                            end
-                        end
-                    end
-                    labelText = player.Name .. " [" .. role .. "]"
-                end
-
                 d.name.Position = Vector2.new(pos.X, pos.Y - h/2 - 16)
                 d.name.Text = labelText
                 d.name.Visible = true
@@ -393,18 +462,31 @@ local function createESP(player)
                 d.box.Visible = false
                 d.name.Visible = false
             end
-            if tracerOn and l then
-                l.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-                l.To = Vector2.new(pos.X, pos.Y)
-                l.Visible = true
-            elseif l then
-                l.Visible = false
+            local l = tracerList[player]
+            if l then
+                if on and tracerOn then
+                    l.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+                    l.To = Vector2.new(pos.X, pos.Y)
+                    l.Visible = true
+                else
+                    l.Visible = false
+                end
             end
         else
-            d.box.Visible=false d.name.Visible=false if l then l.Visible=false end
+            -- Мобільний
+            if d.highlight then
+                d.highlight.Adornee = char
+                d.highlight.Enabled = enabled
+            end
+            if d.billboard then
+                d.billboard.Adornee = head
+                d.billboard.Enabled = enabled
+                d.name.Text = labelText
+            end
         end
     end)
 end
+
 for _, p in ipairs(Players:GetPlayers()) do createESP(p) end
 Players.PlayerAdded:Connect(createESP)
 
@@ -1604,6 +1686,7 @@ end
 -- ---------- Keybinds ----------
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
+    if IS_MOBILE then return end
     if input.KeyCode == Settings.UtilGuiKey then
         opened = not opened
         if opened then
@@ -1656,8 +1739,8 @@ gui.ResetOnSpawn = false
 gui.Parent = CoreGui
 
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 620, 0, 500)
-main.Position = UDim2.new(0, 40, 0, 60)
+main.Size = UDim2.new(0, GUI_W, 0, GUI_H)
+main.Position = IS_MOBILE and UDim2.new(0.5, -GUI_W/2, 0.5, -GUI_H/2) or UDim2.new(0, 40, 0, 60)
 main.BackgroundColor3 = Color3.fromRGB(12, 14, 20)
 main.BorderSizePixel = 0
 main.Active = true
@@ -1691,7 +1774,7 @@ closeBtn.Parent = title
 local cbc = Instance.new("UICorner", closeBtn) cbc.CornerRadius = UDim.new(0, 6)
 
 local sidebar = Instance.new("Frame")
-sidebar.Size = UDim2.new(0, 130, 1, -46)
+sidebar.Size = IS_MOBILE and UDim2.new(0, 110, 1, -46) or UDim2.new(0, 130, 1, -46)
 sidebar.Position = UDim2.new(0, 8, 0, 42)
 sidebar.BackgroundColor3 = Color3.fromRGB(20, 22, 32)
 sidebar.BorderSizePixel = 0
@@ -1716,12 +1799,43 @@ sbLay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 end)
 
 local content = Instance.new("Frame")
-content.Size = UDim2.new(1, -154, 1, -46)
-content.Position = UDim2.new(0, 146, 0, 42)
+content.Size = IS_MOBILE and UDim2.new(1, -134, 1, -46) or UDim2.new(1, -154, 1, -46)
+content.Position = IS_MOBILE and UDim2.new(0, 126, 0, 42) or UDim2.new(0, 146, 0, 42)
 content.BackgroundColor3 = Color3.fromRGB(18, 20, 28)
 content.BorderSizePixel = 0
 content.Parent = main
 local ccc = Instance.new("UICorner", content) ccc.CornerRadius = UDim.new(0, 8)
+
+-- ============================================================
+-- ПЛАВАЮЧА КНОПКА ДЛЯ МОБІЛЬНОГО
+-- ============================================================
+if IS_MOBILE then
+    local mobileBtn = Instance.new("TextButton")
+    mobileBtn.Name = "ROCKET_MobileBtn"
+    mobileBtn.Size = UDim2.new(0, 56, 0, 56)
+    mobileBtn.Position = UDim2.new(1, -70, 0, 100)
+    mobileBtn.BackgroundColor3 = Color3.fromRGB(120, 80, 200)
+    mobileBtn.Text = "🚀"
+    mobileBtn.TextSize = 26
+    mobileBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    mobileBtn.Font = Enum.Font.GothamBold
+    mobileBtn.Active = true
+    mobileBtn.Draggable = true
+    mobileBtn.Parent = gui
+    local mbc = Instance.new("UICorner", mobileBtn) mbc.CornerRadius = UDim.new(1, 0)
+    local mbs = Instance.new("UIStroke", mobileBtn)
+    mbs.Color = Color3.fromRGB(180, 140, 255)
+    mbs.Thickness = 2
+
+    mobileBtn.MouseButton1Click:Connect(function()
+        main.Visible = not main.Visible
+    end)
+
+    -- Спочатку панель прихована, показуємо тільки кнопку
+    main.Visible = false
+else
+    main.Visible = true
+end
 
 local pages = {}
 
@@ -1795,12 +1909,12 @@ end
 
 local function makeButton(parent, text, cb, color)
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, -10, 0, 30)
+    b.Size = UDim2.new(1, -10, 0, BTN_H)
     b.BackgroundColor3 = color or Color3.fromRGB(35, 38, 50)
     b.Text = text
     b.TextColor3 = Color3.fromRGB(230, 225, 245)
     b.Font = Enum.Font.Gotham
-    b.TextSize = 12
+    b.TextSize = FONT_SIZE
     b.Parent = parent
     local bc = Instance.new("UICorner", b) bc.CornerRadius = UDim.new(0, 6)
     b.MouseEnter:Connect(function()
@@ -1833,7 +1947,7 @@ end
 
 local function makeSlider(parent, label, min, max, default, cb)
     local cont = Instance.new("Frame")
-    cont.Size = UDim2.new(1, -10, 0, 46)
+    cont.Size = UDim2.new(1, -10, 0, SLIDER_H)
     cont.BackgroundColor3 = Color3.fromRGB(28, 30, 42)
     cont.Parent = parent
     local c = Instance.new("UICorner", cont) c.CornerRadius = UDim.new(0, 6)
@@ -1848,7 +1962,7 @@ local function makeSlider(parent, label, min, max, default, cb)
     lbl.TextXAlignment = Enum.TextXAlignment.Left
     lbl.Parent = cont
     local bar = Instance.new("Frame")
-    bar.Size = UDim2.new(1, -20, 0, 8)
+    bar.Size = UDim2.new(1, -20, 0, IS_MOBILE and 12 or 8)
     bar.Position = UDim2.new(0, 10, 0, 26)
     bar.BackgroundColor3 = Color3.fromRGB(55, 58, 75)
     bar.BorderSizePixel = 0
@@ -1883,7 +1997,7 @@ end
 
 local function makeTextBox(parent, default, placeholder, cb)
     local t = Instance.new("TextBox")
-    t.Size = UDim2.new(1, -10, 0, 30)
+    t.Size = UDim2.new(1, -10, 0, BTN_H)
     t.BackgroundColor3 = Color3.fromRGB(28, 30, 42)
     t.Text = default or ""
     t.PlaceholderText = placeholder or ""
@@ -2117,8 +2231,18 @@ makeButton(pOther, "Server Hop", serverHop)
 makeButton(pOther, "Unload ROCKET HUB", function()
     stopFly()
     State.ESP = false State.Tracers = false State.RvEsp = false State.MmEsp = false State.BaEsp = false State.GrEsp = false
-    for _, d in pairs(espList) do d.box:Remove() d.name:Remove() end
-    for _, l in pairs(tracerList) do l:Remove() end
+    for _, d in pairs(espList) do
+        if d.mode == "drawing" then
+            if d.box then d.box:Remove() end
+            if d.name then d.name:Remove() end
+        else
+            if d.highlight then d.highlight:Destroy() end
+            if d.billboard then d.billboard:Destroy() end
+        end
+    end
+    for _, l in pairs(tracerList) do
+        if l then pcall(function() l:Remove() end) end
+    end
     for _, h in pairs(doorHL) do h:Destroy() end
     for _, h in pairs(itemHL) do h:Destroy() end
     for _, h in pairs(GraceCache.entityHls) do h:Destroy() end
@@ -2173,17 +2297,19 @@ makeToggle(pUtil, "Auto Reconnect", false, function(on)
     logAction("Auto Reconnect: " .. (on and "ON" or "OFF"))
 end)
 
-makeLabel(pUtil, "— Скріншоти —")
-makeLabel(pUtil, "Клавіша P — знімок екрана", Color3.fromRGB(180,180,180))
-makeButton(pUtil, "📸 Зробити скріншот", function()
-    takeScreenshot()
-end)
+if not IS_MOBILE then
+    makeLabel(pUtil, "— Скріншоти —")
+    makeLabel(pUtil, "Клавіша P — знімок екрана", Color3.fromRGB(180,180,180))
+    makeButton(pUtil, "📸 Зробити скріншот", function()
+        takeScreenshot()
+    end)
 
-makeLabel(pUtil, "— Multi-Instance —")
-makeButton(pUtil, "🌐 Відкрити інструкцію", function()
-    Notify("Multi-Instance", "1. Скачай Bloxstrap\\n2. Увімкни Allow Multi Instance\\n3. Запусти 2 вікна Roblox", "info")
-    logAction("Multi-Instance instruction shown")
-end)
+    makeLabel(pUtil, "— Multi-Instance —")
+    makeButton(pUtil, "🌐 Відкрити інструкцію", function()
+        Notify("Multi-Instance", "1. Скачай Bloxstrap\\n2. Увімкни Allow Multi Instance\\n3. Запусти 2 вікна Roblox", "info")
+        logAction("Multi-Instance instruction shown")
+    end)
+end
 
 makeLabel(pUtil, "— Anti-Ban —")
 makeToggle(pUtil, "Anti-Ban (basic)", true, function(on)
@@ -2263,13 +2389,15 @@ closeBtn.MouseButton1Click:Connect(function()
         sidebar.Visible = true
         content.Visible = true
         TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {
-            Size = UDim2.new(0, 620, 0, 500)
+            Size = UDim2.new(0, GUI_W, 0, GUI_H)   -- розгорнута
+                   UDim2.new(0, GUI_W, 0, 36)      -- згорнута
         }):Play()
         closeBtn.Text = "—"
     else
         -- Сворачиваем: анімуємо розмір, потім ховаємо елементи
         local tween = TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {
-            Size = UDim2.new(0, 620, 0, 36)
+            Size = UDim2.new(0, GUI_W, 0, GUI_H)   -- розгорнута
+                   UDim2.new(0, GUI_W, 0, 36)      -- згорнута
         })
         tween:Play()
         tween.Completed:Connect(function()
