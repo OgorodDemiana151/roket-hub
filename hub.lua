@@ -2334,6 +2334,7 @@ if not IS_MOBILE then
         openNewInstance()
         Notify("Multi-Instance", "1. Скачай Bloxstrap, 2. Увімкни Allow Multi Instance, 3. Запусти 2 вікна Roblox", "info")
     end)
+end   -- ← ОСЬ ЦЕЙ "end" ТИ ЗАБУВ
 
 makeLabel(pUtil, "— Anti-Ban —")
 makeToggle(pUtil, "Anti-Ban (basic)", true, function(on)
