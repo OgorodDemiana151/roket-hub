@@ -169,7 +169,7 @@ end)
 local notifGui = Instance.new("ScreenGui")
 notifGui.Name = "ROCKET_Notifs"
 notifGui.ResetOnSpawn = false
-notifgui.Parent = PlayerGui
+notifGui.Parent = PlayerGui
 
 local notifHolder = Instance.new("Frame")
 notifHolder.Size = UDim2.new(0, 320, 1, -40)
@@ -864,7 +864,7 @@ local function createGraceDistanceHud()
     local g = Instance.new("ScreenGui")
     g.Name = "ROCKET_GraceDistance"
     g.ResetOnSpawn = false
-    g.Parent = CoreGui
+    g.Parent = PlayerGui
 
     local l = Instance.new("TextLabel")
     l.Size = UDim2.new(0, 300, 0, 22)
@@ -908,7 +908,7 @@ local function createGraceSafeZoneArrow()
     local g = Instance.new("ScreenGui")
     g.Name = "ROCKET_GraceSafeZone"
     g.ResetOnSpawn = false
-    g.Parent = CoreGui
+    g.Parent = PlayerGui
 
     local l = Instance.new("TextLabel")
     l.Size = UDim2.new(0, 400, 0, 24)
@@ -1031,7 +1031,7 @@ local function createGraceCrosshair()
     local g = Instance.new("ScreenGui")
     g.Name = "ROCKET_GraceCrosshair"
     g.ResetOnSpawn = false
-    g.Parent = CoreGui
+    g.Parent = PlayerGui
     local f = Instance.new("Frame")
     f.Size = UDim2.new(0, 20, 0, 20)
     f.Position = UDim2.new(0.5, -10, 0.5, -10)
@@ -1136,7 +1136,7 @@ local function createGraceCoords()
     local g = Instance.new("ScreenGui")
     g.Name = "ROCKET_GraceCoords"
     g.ResetOnSpawn = false
-    g.Parent = CoreGui
+    g.Parent = PlayerGui
     local l = Instance.new("TextLabel")
     l.Size = UDim2.new(0, 250, 0, 60)
     l.Position = UDim2.new(0, 10, 0, 10)
@@ -1173,7 +1173,7 @@ RunService.Heartbeat:Connect(function()
         local g = Instance.new("ScreenGui")
         g.Name = "ROCKET_GraceCounter"
         g.ResetOnSpawn = false
-        g.Parent = CoreGui
+        g.Parent = PlayerGui
         local l = Instance.new("TextLabel")
         l.Size = UDim2.new(0, 250, 0, 22)
         l.Position = UDim2.new(1, -260, 0, 10)
@@ -1266,7 +1266,7 @@ local function createGraceTimer()
     local g = Instance.new("ScreenGui")
     g.Name = "ROCKET_GraceTimer"
     g.ResetOnSpawn = false
-    g.Parent = CoreGui
+    g.Parent = PlayerGui
     local l = Instance.new("TextLabel")
     l.Size = UDim2.new(0, 250, 0, 22)
     l.Position = UDim2.new(0.5, -125, 0, 36)
@@ -1521,7 +1521,7 @@ local function createLoggerGui()
     local g = Instance.new("ScreenGui")
     g.Name = "ROCKET_Logger"
     g.ResetOnSpawn = false
-    g.Parent = CoreGui
+    g.Parent = PlayerGui
     local f = Instance.new("Frame")
     f.Size = UDim2.new(0, 400, 0, 200)
     f.Position = UDim2.new(0, 10, 1, -210)
@@ -1599,18 +1599,6 @@ end)
 -- ---------- 5. Screenshot Saver ----------
 local function takeScreenshot()
     local ok, err = pcall(function()
-        local filename = "rocket_screenshot_" .. os.date("%Y%m%d_%H%M%S") .. ".png"
-        local img = game:GetService("ThumbnailGenerator")
-        -- fallback: робимо знімок через viewport
-        pcall(function()
-            if writefile then
-                -- ...
-            end
-        end)
-            -- Solara не має прямого screenshot API
-            -- використовуємо ViewportFrame
-        end
-        -- Простий варіант: CaptureScreenshot deprecated
         local capture = game:GetService("CaptureService")
         if capture then
             capture:CaptureScreenshot(function(contentId)
@@ -1752,7 +1740,7 @@ end
 -- ============================================================
 -- GUI
 -- ============================================================
-local old = CoreGui:FindFirstChild("ROCKET_HUB")
+local old = PlayerGui:FindFirstChild("ROCKET_HUB")
 if old then old:Destroy() end
 
 local gui = Instance.new("ScreenGui")
@@ -2162,6 +2150,21 @@ local pGr = newPage("Grace")
 makeLabel(pGr, "— ESP та сенсори —")
 makeToggle(pGr, "ESP Players", false, function(on) State.GrEsp = on end)
 makeToggle(pGr, "Tracers", false, function(on) State.GrTracers = on end)
+local function toggleGraceHighlight(on)
+    for _, h in pairs(GraceCache.entityHls) do h:Destroy() end
+    GraceCache.entityHls = {}
+    if not on then return end
+    refreshGraceCache()
+    for _, obj in ipairs(GraceCache.entities) do
+        local hl = Instance.new("Highlight")
+        hl.Adornee = obj
+        hl.FillColor = Color3.fromRGB(255, 80, 200)
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+        hl.FillTransparency = 0.5
+        hl.Parent = obj
+        table.insert(GraceCache.entityHls, hl)
+    end
+end
 makeToggle(pGr, "Highlight Entities/Doors", false, function(on)
     toggleGraceHighlight(on)
     toggleGraceDoorHighlight(on)
@@ -2179,7 +2182,7 @@ makeLabel(pGr, "— Виживання —")
 makeToggle(pGr, "Safe Zone Finder", false, function(on) State.GrSafeZoneFinder = on end)
 makeToggle(pGr, "Auto Hide", false, toggleGraceAutoHide)
 makeToggle(pGr, "Auto Crouch (Ctrl)", false, function(on) State.GrAutoCrouch = on end)
-makeToggle(pGr, "Footstep Mute", false, function(on) State.GrFootstepMute = on end)
+makeToggle(pGr, "Mute Ambient Sounds", false, function(on) muteAmbientSounds(on) end)
 
 makeLabel(pGr, "— Камера та HUD —")
 makeSlider(pGr, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
@@ -2328,10 +2331,9 @@ if not IS_MOBILE then
 
     makeLabel(pUtil, "— Multi-Instance —")
     makeButton(pUtil, "🌐 Відкрити інструкцію", function()
-        Notify("Multi-Instance", "1. Скачай Bloxstrap\\n2. Увімкни Allow Multi Instance\\n3. Запусти 2 вікна Roblox", "info")
-        logAction("Multi-Instance instruction shown")
+        openNewInstance()
+        Notify("Multi-Instance", "1. Скачай Bloxstrap, 2. Увімкни Allow Multi Instance, 3. Запусти 2 вікна Roblox", "info")
     end)
-end
 
 makeLabel(pUtil, "— Anti-Ban —")
 makeToggle(pUtil, "Anti-Ban (basic)", true, function(on)
@@ -2407,19 +2409,15 @@ local opened = true
 closeBtn.MouseButton1Click:Connect(function()
     opened = not opened
     if opened then
-        -- Розгортаємо: спочатку показуємо елементи, потім анімуємо розмір
         sidebar.Visible = true
         content.Visible = true
         TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {
-            Size = UDim2.new(0, GUI_W, 0, GUI_H)   -- розгорнута
-                   UDim2.new(0, GUI_W, 0, 36)      -- згорнута
+            Size = UDim2.new(0, GUI_W, 0, GUI_H)
         }):Play()
         closeBtn.Text = "—"
     else
-        -- Сворачиваем: анімуємо розмір, потім ховаємо елементи
         local tween = TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {
-            Size = UDim2.new(0, GUI_W, 0, GUI_H)   -- розгорнута
-                   UDim2.new(0, GUI_W, 0, 36)      -- згорнута
+            Size = UDim2.new(0, GUI_W, 0, 36)
         })
         tween:Play()
         tween.Completed:Connect(function()
