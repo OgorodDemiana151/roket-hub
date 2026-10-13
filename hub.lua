@@ -1,5 +1,5 @@
 -- ROCKET HUB v4 — Grace Extended (20 функцій)
--- Інжектор: Solara
+-- Інжектор: Solara / Delta
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -11,23 +11,18 @@ local HttpService = game:GetService("HttpService")
 local SoundService = game:GetService("SoundService")
 
 local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")  -- ← ТЕПЕР тут можна
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local Camera = workspace.CurrentCamera
 
--- ============================================================
--- ВИЗНАЧЕННЯ ПЛАТФОРМИ
--- ============================================================
 local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 local VIEWPORT = workspace.CurrentCamera.ViewportSize
 
--- Адаптивні розміри
 local GUI_W = IS_MOBILE and math.min(VIEWPORT.X * 0.95, 420) or 620
 local GUI_H = IS_MOBILE and math.min(VIEWPORT.Y * 0.9, 440) or 500
 local BTN_H = IS_MOBILE and 40 or 30
 local SLIDER_H = IS_MOBILE and 56 or 46
 local FONT_SIZE = IS_MOBILE and 14 or 12
 
--- Безпечний Parent для GUI (мобільні інжектори інколи блокують CoreGui)
 local function safeGuiParent(guiObj)
     local ok = pcall(function() guiObj.Parent = PlayerGui end)
     if not ok then
@@ -39,100 +34,39 @@ end
 -- СТАН
 -- ============================================================
 local State = {
-    Speed = 16,
-    Jump = 50,
-    Gravity = 196.2,
-    FlySpeed = 120,
-    FOV = 70,
-
-    Fly = false,
-    Noclip = false,
-    InfJump = false,
-    ESP = false,
-    Tracers = false,
-    Fullbright = false,
-    GravityOff = false,
-    ClickTP = false,
-    AntiAFK = true,
-
-    DoorsAutoHide = false,
-    DoorsHighlights = false,
-    DoorsRushAlarm = false,
-
-    BHSkyPreset = "Default",
-
-    KSCameraLock = false,
-
-    ArEsp = false,
-    ArTracers = false,
-
-    RvEsp = false,
-    RvTracers = false,
-    RvCamLock = false,
-    RvTeamCheck = true,
-
-    MmEsp = false,
-    MmTracers = false,
-    MmRoleEsp = true,
-
-    BaEsp = false,
-    BaTracers = false,
-    BaAutoCollect = false,
-
-    -- GRACE — 20 функцій
-    GrEsp = false,
-    GrTracers = false,
-    GrFullbright = false,
-    GrEntityAlarm = false,
-    GrEntityAlarmRadius = 40,
-    GrDoorHighlight = false,
-    GrItemEsp = false,
-    GrEntityDistance = false,
-    GrSafeZoneFinder = false,
-    GrAutoHide = false,
-    GrRushAlarm = false,
-    GrMuteAmbient = false,
-    GrCrosshair = false,
-    GrWaypoint = false,
-    GrWaypointPos = nil,
-    GrSpeedBoost = false,
-    GrThirdPerson = false,
-    GrThirdPersonDist = 8,
-    GrNoFog = false,
-    GrCoordsHud = false,
-    GrEntityCounter = false,
-    GrGraceRoomMarker = false,
-    GrAutoCrouch = false,
-    GrFootstepMute = false,
-    GrSkyPreset = "Default",
-    GrSpeedrunTimer = false,
-    GrSpeedrunStart = nil,
-    GrAutoOpenDoors = false,
-    GrLookAway = false,
-    GrAntiForcedLook = false,
-
-    -- Утиліти
-    UtilFpsUnlock = false,
-    UtilServerHud = false,
-    UtilAutoReconnect = false,
-    UtilScreenshotKey = Enum.KeyCode.P,
-    UtilDiscordRpc = false,
+    Speed = 16, Jump = 50, Gravity = 196.2, FlySpeed = 120, FOV = 70,
+    Fly = false, Noclip = false, InfJump = false,
+    ESP = false, Tracers = false, Fullbright = false,
+    GravityOff = false, ClickTP = false, AntiAFK = true,
+    DoorsAutoHide = false, DoorsHighlights = false, DoorsRushAlarm = false,
+    BHSkyPreset = "Default", KSCameraLock = false,
+    ArEsp = false, ArTracers = false,
+    RvEsp = false, RvTracers = false, RvCamLock = false, RvTeamCheck = true,
+    MmEsp = false, MmTracers = false, MmRoleEsp = true,
+    BaEsp = false, BaTracers = false, BaAutoCollect = false,
+    GrEsp = false, GrTracers = false, GrFullbright = false,
+    GrEntityAlarm = false, GrEntityAlarmRadius = 40,
+    GrDoorHighlight = false, GrItemEsp = false, GrEntityDistance = false,
+    GrSafeZoneFinder = false, GrAutoHide = false, GrRushAlarm = false,
+    GrMuteAmbient = false, GrCrosshair = false,
+    GrWaypoint = false, GrWaypointPos = nil, GrSpeedBoost = false,
+    GrThirdPerson = false, GrThirdPersonDist = 8, GrNoFog = false,
+    GrCoordsHud = false, GrEntityCounter = false, GrGraceRoomMarker = false,
+    GrAutoCrouch = false, GrFootstepMute = false, GrSkyPreset = "Default",
+    GrSpeedrunTimer = false, GrSpeedrunStart = nil,
+    GrAutoOpenDoors = false, GrLookAway = false, GrAntiForcedLook = false,
+    UtilFpsUnlock = false, UtilServerHud = false, UtilAutoReconnect = false,
+    UtilScreenshotKey = Enum.KeyCode.P, UtilDiscordRpc = false,
 }
 
--- ============================================================
--- НАЛАШТУВАННЯ
--- ============================================================
 local Settings = {
-    NotifSound = true,
-    NotifVolume = 0.5,
-    NotifDuration = 4,
+    NotifSound = true, NotifVolume = 0.5, NotifDuration = 4,
     SoundSuccess = "rbxassetid://4590662766",
     SoundError   = "rbxassetid://5159527953",
     SoundInfo    = "rbxassetid://4590662766",
     SoundWarn    = "rbxassetid://5159527953",
-        -- Утиліти
     UtilScriptLogger = true,
-    UtilTheme = "purple",           -- purple / blue / green / red / dark / light
+    UtilTheme = "purple",
     UtilAccent = Color3.fromRGB(120, 90, 220),
     UtilGuiKey = Enum.KeyCode.RightShift,
     UtilHudPos = UDim2.new(1, -260, 0, 10),
@@ -342,7 +276,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
--- ESP + TRACERS (адаптивно: Drawing для ПК, Highlight для мобільного)
+-- ESP + TRACERS
 -- ============================================================
 local espList = {}
 local tracerList = {}
@@ -351,7 +285,6 @@ local function createESP(player)
     if player == LocalPlayer then return end
 
     if not IS_MOBILE then
-        -- ПК: Drawing
         local box = Drawing.new("Square")
         box.Thickness = 1.5 box.Color = Color3.fromRGB(255,80,80) box.Filled = false box.Visible = false
         local nm = Drawing.new("Text")
@@ -362,7 +295,6 @@ local function createESP(player)
         line.Thickness = 1.5 line.Color = Color3.fromRGB(0,200,255) line.Transparency = 0.8 line.Visible = false
         tracerList[player] = line
     else
-        -- Мобільний: Highlight + BillboardGui (без Drawing)
         local hl = Instance.new("Highlight")
         hl.Name = "ROCKET_ESP_" .. player.UserId
         hl.FillColor = Color3.fromRGB(255, 80, 80)
@@ -392,7 +324,6 @@ local function createESP(player)
         espList[player] = {highlight = hl, billboard = bb, name = txt, mode="highlight"}
     end
 
-    -- Оновлення (спільне)
     RunService.RenderStepped:Connect(function()
         local d = espList[player]
         if not d then return end
@@ -414,7 +345,6 @@ local function createESP(player)
         local hrp = char:FindFirstChild("HumanoidRootPart")
         local head = char:FindFirstChild("Head")
 
-        -- Роль (MM2)
         local labelText = player.Name
         if State.MmRoleEsp then
             local role = "Innocent"
@@ -447,7 +377,6 @@ local function createESP(player)
         end
 
         if d.mode == "drawing" then
-            -- ПК
             local pos, on = Camera:WorldToViewportPoint(hrp.Position)
             local hp = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
             if on and enabled then
@@ -474,7 +403,6 @@ local function createESP(player)
                 end
             end
         else
-            -- Мобільний
             if d.highlight then
                 d.highlight.Adornee = char
                 d.highlight.Enabled = enabled
@@ -533,7 +461,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
 end)
 
 -- ============================================================
--- DOORS (без змін)
+-- DOORS
 -- ============================================================
 local Cache = {furniture={}, doors={}, items={}, lastRefresh=0, rushActive=false, lastRush=0}
 
@@ -736,35 +664,18 @@ local function baAutoCollect()
 end
 
 -- ============================================================
--- GRACE — 20 ФУНКЦІЙ
+-- GRACE — кеш і хелпери
 -- ============================================================
-
--- Спільний кеш Grace
 local GraceCache = {
-    entities = {},
-    doors = {},
-    items = {},
-    safeZones = {},
-    lastRefresh = 0,
-    lastAlarm = 0,
-    alarmActive = false,
-    lastRushCheck = 0,
-    rushActive = false,
-    entityHls = {},
-    doorHls = {},
-    itemHls = {},
-    waypointHl = nil,
-    crosshairGui = nil,
-    coordsGui = nil,
-    timerGui = nil,
-    counterGui = nil,
-    distanceGui = nil,
-    safeZoneArrow = nil,
-    ambientMuted = {},
-    footstepMuted = {},
+    entities = {}, doors = {}, items = {}, safeZones = {},
+    lastRefresh = 0, lastAlarm = 0, alarmActive = false,
+    lastRushCheck = 0, rushActive = false,
+    entityHls = {}, doorHls = {}, itemHls = {},
+    waypointHl = nil, crosshairGui = nil, coordsGui = nil,
+    timerGui = nil, counterGui = nil, distanceGui = nil,
+    safeZoneArrow = nil, ambientMuted = {}, footstepMuted = {},
 }
 
--- Оновлення кешу Grace (раз на 1 сек)
 local function refreshGraceCache()
     local now = tick()
     if now - GraceCache.lastRefresh < 1 then return end
@@ -793,7 +704,181 @@ local function refreshGraceCache()
     end
 end
 
--- 1. ENTITY ALARM
+-- Хелпери Grace (ОГОЛОШЕНІ ДО GUI)
+local function toggleGraceHighlight(on)
+    for _, h in pairs(GraceCache.entityHls) do h:Destroy() end
+    GraceCache.entityHls = {}
+    if not on then return end
+    refreshGraceCache()
+    for _, obj in ipairs(GraceCache.entities) do
+        local hl = Instance.new("Highlight")
+        hl.Adornee = obj
+        hl.FillColor = Color3.fromRGB(255, 80, 200)
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+        hl.FillTransparency = 0.5
+        hl.Parent = obj
+        table.insert(GraceCache.entityHls, hl)
+    end
+end
+
+local function toggleGraceDoorHighlight(on)
+    for _, h in pairs(GraceCache.doorHls) do h:Destroy() end
+    GraceCache.doorHls = {}
+    if not on then return end
+    refreshGraceCache()
+    for _, obj in ipairs(GraceCache.doors) do
+        local hl = Instance.new("Highlight")
+        hl.Adornee = obj:IsA("Model") and obj or obj.Parent
+        hl.FillColor = Color3.fromRGB(255, 200, 50)
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+        hl.FillTransparency = 0.5
+        hl.Parent = obj
+        table.insert(GraceCache.doorHls, hl)
+    end
+end
+
+local function toggleGraceItemEsp(on)
+    for _, h in pairs(GraceCache.itemHls) do h:Destroy() end
+    GraceCache.itemHls = {}
+    if not on then return end
+    refreshGraceCache()
+    for _, obj in ipairs(GraceCache.items) do
+        local hl = Instance.new("Highlight")
+        hl.Adornee = obj
+        hl.FillColor = Color3.fromRGB(80, 220, 120)
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+        hl.FillTransparency = 0.3
+        hl.Parent = obj
+        table.insert(GraceCache.itemHls, hl)
+    end
+end
+
+local function muteAmbientSounds(on)
+    if on then
+        for _, s in ipairs(SoundService:GetDescendants()) do
+            if s:IsA("Sound") and s.IsPlaying then
+                local n = s.Name:lower()
+                if n:find("ambient") or n:find("creep") or n:find("whisper") or n:find("breath") then
+                    if not GraceCache.ambientMuted[s] then
+                        GraceCache.ambientMuted[s] = s.Volume
+                        s.Volume = 0
+                    end
+                end
+            end
+        end
+    else
+        for s, v in pairs(GraceCache.ambientMuted) do
+            if s and s.Parent then s.Volume = v end
+        end
+        GraceCache.ambientMuted = {}
+    end
+end
+
+local function createGraceCrosshair()
+    if GraceCache.crosshairGui then return end
+    local g = Instance.new("ScreenGui")
+    g.Name = "ROCKET_GraceCrosshair"
+    g.ResetOnSpawn = false
+    g.Parent = PlayerGui
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(0, 20, 0, 20)
+    f.Position = UDim2.new(0.5, -10, 0.5, -10)
+    f.BackgroundTransparency = 1
+    f.Parent = g
+    local h = Instance.new("Frame")
+    h.Size = UDim2.new(1, 0, 0, 2)
+    h.Position = UDim2.new(0, 0, 0.5, -1)
+    h.BackgroundColor3 = Color3.fromRGB(0, 255, 120)
+    h.BorderSizePixel = 0
+    h.Parent = f
+    local v = Instance.new("Frame")
+    v.Size = UDim2.new(0, 2, 1, 0)
+    v.Position = UDim2.new(0.5, -1, 0, 0)
+    v.BackgroundColor3 = Color3.fromRGB(0, 255, 120)
+    v.BorderSizePixel = 0
+    v.Parent = f
+    GraceCache.crosshairGui = g
+end
+
+local function toggleGraceCrosshair(on)
+    if on then
+        createGraceCrosshair()
+        GraceCache.crosshairGui.Enabled = true
+    elseif GraceCache.crosshairGui then
+        GraceCache.crosshairGui.Enabled = false
+    end
+end
+
+local function createGraceWaypoint()
+    if GraceCache.waypointHl then return end
+    local part = Instance.new("Part")
+    part.Size = Vector3.new(3, 3, 3)
+    part.Anchored = true
+    part.CanCollide = false
+    part.Material = Enum.Material.Neon
+    part.Color = Color3.fromRGB(0, 200, 255)
+    part.Name = "ROCKET_Waypoint"
+    part.Parent = workspace
+    local hl = Instance.new("Highlight")
+    hl.Adornee = part
+    hl.FillColor = Color3.fromRGB(0, 200, 255)
+    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+    hl.FillTransparency = 0.5
+    hl.Parent = part
+    GraceCache.waypointHl = part
+end
+
+local function setGraceWaypoint()
+    local hrp = getHRP()
+    if not hrp then return end
+    if GraceCache.waypointHl then GraceCache.waypointHl:Destroy() end
+    GraceCache.waypointHl = nil
+    createGraceWaypoint()
+    GraceCache.waypointHl.Position = hrp.Position + Vector3.new(0, 3, 0)
+    GraceCache.waypointPos = hrp.Position
+    Notify("Waypoint", "Мітку встановлено", "success")
+end
+
+local graceHideConn
+local function toggleGraceAutoHide(on)
+    if graceHideConn then graceHideConn:Disconnect() graceHideConn = nil end
+    if not on then return end
+    graceHideConn = RunService.Heartbeat:Connect(function()
+        if not State.GrAutoHide then return end
+        refreshGraceCache()
+        local hrp = getHRP()
+        if not hrp then return end
+        local danger = false
+        for _, ent in ipairs(GraceCache.entities) do
+            local base = ent:IsA("Model") and ent:FindFirstChildWhichIsA("BasePart") or ent
+            if base and (base.Position - hrp.Position).Magnitude < 30 then
+                danger = true break
+            end
+        end
+        if danger then
+            local nearest, dist = nil, 15
+            for _, sz in ipairs(GraceCache.safeZones) do
+                local base = sz:IsA("Model") and sz:FindFirstChildWhichIsA("BasePart") or sz
+                if base then
+                    local d = (base.Position - hrp.Position).Magnitude
+                    if d < dist then nearest, dist = base, d end
+                end
+            end
+            if nearest then
+                hrp.CFrame = CFrame.new(nearest.Position + Vector3.new(0,2,0))
+                game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                task.wait(0.05)
+                game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
+            end
+        end
+    end)
+end
+
+-- ============================================================
+-- GRACE — ефекти (loops)
+-- ============================================================
+
+-- 1. Entity Alarm
 RunService.Heartbeat:Connect(function()
     if not State.GrEntityAlarm then return end
     local now = tick()
@@ -824,48 +909,13 @@ RunService.Heartbeat:Connect(function()
     GraceCache.alarmActive = false
 end)
 
--- 2. DOOR HIGHLIGHT
-local function toggleGraceDoorHighlight(on)
-    for _, h in pairs(GraceCache.doorHls) do h:Destroy() end
-    GraceCache.doorHls = {}
-    if not on then return end
-    refreshGraceCache()
-    for _, obj in ipairs(GraceCache.doors) do
-        local hl = Instance.new("Highlight")
-        hl.Adornee = obj:IsA("Model") and obj or obj.Parent
-        hl.FillColor = Color3.fromRGB(255, 200, 50)
-        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-        hl.FillTransparency = 0.5
-        hl.Parent = obj
-        table.insert(GraceCache.doorHls, hl)
-    end
-end
-
--- 3. ITEM ESP
-local function toggleGraceItemEsp(on)
-    for _, h in pairs(GraceCache.itemHls) do h:Destroy() end
-    GraceCache.itemHls = {}
-    if not on then return end
-    refreshGraceCache()
-    for _, obj in ipairs(GraceCache.items) do
-        local hl = Instance.new("Highlight")
-        hl.Adornee = obj
-        hl.FillColor = Color3.fromRGB(80, 220, 120)
-        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-        hl.FillTransparency = 0.3
-        hl.Parent = obj
-        table.insert(GraceCache.itemHls, hl)
-    end
-end
-
--- 4. ENTITY DISTANCE HUD
+-- 4. Entity Distance HUD
 local function createGraceDistanceHud()
     if GraceCache.distanceGui then return end
     local g = Instance.new("ScreenGui")
     g.Name = "ROCKET_GraceDistance"
     g.ResetOnSpawn = false
     g.Parent = PlayerGui
-
     local l = Instance.new("TextLabel")
     l.Size = UDim2.new(0, 300, 0, 22)
     l.Position = UDim2.new(0.5, -150, 0, 10)
@@ -879,15 +929,14 @@ local function createGraceDistanceHud()
 end
 RunService.Heartbeat:Connect(function()
     if not State.GrEntityDistance then
-        if GraceCache.distanceGui then
-            GraceCache.distanceGui.gui.Enabled = false
-        end
+        if GraceCache.distanceGui then GraceCache.distanceGui.gui.Enabled = false end
         return
     end
     createGraceDistanceHud()
     GraceCache.distanceGui.gui.Enabled = true
     local hrp = getHRP()
-    if not hrp then return end    local closest, dist = nil, math.huge
+    if not hrp then return end
+    local closest, dist = nil, math.huge
     for _, ent in ipairs(GraceCache.entities) do
         local base = ent:IsA("Model") and ent:FindFirstChildWhichIsA("BasePart") or ent
         if base then
@@ -902,14 +951,13 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 5. SAFE ZONE FINDER
+-- 5. Safe Zone Finder
 local function createGraceSafeZoneArrow()
     if GraceCache.safeZoneArrow then return end
     local g = Instance.new("ScreenGui")
     g.Name = "ROCKET_GraceSafeZone"
     g.ResetOnSpawn = false
     g.Parent = PlayerGui
-
     local l = Instance.new("TextLabel")
     l.Size = UDim2.new(0, 400, 0, 24)
     l.Position = UDim2.new(0.5, -200, 1, -40)
@@ -945,44 +993,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 6. AUTO HIDE
-local graceHideConn
-local function toggleGraceAutoHide(on)
-    if graceHideConn then graceHideConn:Disconnect() graceHideConn = nil end
-    if not on then return end
-    graceHideConn = RunService.Heartbeat:Connect(function()
-        if not State.GrAutoHide then return end
-        refreshGraceCache()
-        local hrp = getHRP()
-        if not hrp then return end
-        -- Якщо сутність поруч — ховаємось
-        local danger = false
-        for _, ent in ipairs(GraceCache.entities) do
-            local base = ent:IsA("Model") and ent:FindFirstChildWhichIsA("BasePart") or ent
-            if base and (base.Position - hrp.Position).Magnitude < 30 then
-                danger = true break
-            end
-        end
-        if danger then
-            local nearest, dist = nil, 15
-            for _, sz in ipairs(GraceCache.safeZones) do
-                local base = sz:IsA("Model") and sz:FindFirstChildWhichIsA("BasePart") or sz
-                if base then
-                    local d = (base.Position - hrp.Position).Magnitude
-                    if d < dist then nearest, dist = base, d end
-                end
-            end
-            if nearest then
-                hrp.CFrame = CFrame.new(nearest.Position + Vector3.new(0,2,0))
-                game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
-                task.wait(0.05)
-                game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
-            end
-        end
-    end)
-end
-
--- 7. RUSH ALARM
+-- 7. Rush Alarm (Grace)
 RunService.Heartbeat:Connect(function()
     if not State.GrRushAlarm then return end
     local now = tick()
@@ -1003,94 +1014,7 @@ RunService.Heartbeat:Connect(function()
     GraceCache.rushActive = false
 end)
 
--- 8. AMBIENT SOUND MUTER
-local function muteAmbientSounds(on)
-    if on then
-        for _, s in ipairs(SoundService:GetDescendants()) do
-            if s:IsA("Sound") and s.IsPlaying then
-                local n = s.Name:lower()
-                if n:find("ambient") or n:find("creep") or n:find("whisper") or n:find("step") or n:find("breath") then
-                    if not GraceCache.ambientMuted[s] then
-                        GraceCache.ambientMuted[s] = s.Volume
-                        s.Volume = 0
-                    end
-                end
-            end
-        end
-    else
-        for s, v in pairs(GraceCache.ambientMuted) do
-            if s and s.Parent then s.Volume = v end
-        end
-        GraceCache.ambientMuted = {}
-    end
-end
-
--- 9. CROSSHAIR
-local function createGraceCrosshair()
-    if GraceCache.crosshairGui then return end
-    local g = Instance.new("ScreenGui")
-    g.Name = "ROCKET_GraceCrosshair"
-    g.ResetOnSpawn = false
-    g.Parent = PlayerGui
-    local f = Instance.new("Frame")
-    f.Size = UDim2.new(0, 20, 0, 20)
-    f.Position = UDim2.new(0.5, -10, 0.5, -10)
-    f.BackgroundTransparency = 1
-    f.Parent = g
-    local h = Instance.new("Frame")
-    h.Size = UDim2.new(1, 0, 0, 2)
-    h.Position = UDim2.new(0, 0, 0.5, -1)
-    h.BackgroundColor3 = Color3.fromRGB(0, 255, 120)
-    h.BorderSizePixel = 0
-    h.Parent = f
-    local v = Instance.new("Frame")
-    v.Size = UDim2.new(0, 2, 1, 0)
-    v.Position = UDim2.new(0.5, -1, 0, 0)
-    v.BackgroundColor3 = Color3.fromRGB(0, 255, 120)
-    v.BorderSizePixel = 0
-    v.Parent = f
-    GraceCache.crosshairGui = g
-end
-local function toggleGraceCrosshair(on)
-    if on then
-        createGraceCrosshair()
-        GraceCache.crosshairGui.Enabled = true
-    elseif GraceCache.crosshairGui then
-        GraceCache.crosshairGui.Enabled = false
-    end
-end
-
--- 10. WAYPOINT
-local function createGraceWaypoint()
-    if GraceCache.waypointHl then return end
-    local part = Instance.new("Part")
-    part.Size = Vector3.new(3, 3, 3)
-    part.Anchored = true
-    part.CanCollide = false
-    part.Material = Enum.Material.Neon
-    part.Color = Color3.fromRGB(0, 200, 255)
-    part.Name = "ROCKET_Waypoint"
-    part.Parent = workspace
-    local hl = Instance.new("Highlight")
-    hl.Adornee = part
-    hl.FillColor = Color3.fromRGB(0, 200, 255)
-    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-    hl.FillTransparency = 0.5
-    hl.Parent = part
-    GraceCache.waypointHl = part
-end
-local function setGraceWaypoint()
-    local hrp = getHRP()
-    if not hrp then return end
-    if GraceCache.waypointHl then GraceCache.waypointHl:Destroy() end
-    GraceCache.waypointHl = nil
-    createGraceWaypoint()
-    GraceCache.waypointHl.Position = hrp.Position + Vector3.new(0, 3, 0)
-    GraceCache.waypointPos = hrp.Position
-    Notify("Waypoint", "Мітку встановлено", "success")
-end
-
--- 11. SPEED BOOST НА SHIFT
+-- 11. Speed Boost (LeftShift)
 UserInputService.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.LeftShift and State.GrSpeedBoost then
@@ -1105,7 +1029,7 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- 12. THIRD PERSON
+-- 12. Third Person
 RunService.RenderStepped:Connect(function()
     if not State.GrThirdPerson then return end
     local char = LocalPlayer.Character
@@ -1116,12 +1040,10 @@ RunService.RenderStepped:Connect(function()
     Camera.CFrame = CFrame.new(hrp.Position + offset, hrp.Position)
 end)
 
--- 13. NO FOG / NO BLUR
+-- 13. No Fog / No Blur
 RunService.Heartbeat:Connect(function()
     if State.GrNoFog then
         Lighting.FogEnd = 1e6
-    end
-    if State.GrNoFog then
         for _, e in ipairs(Lighting:GetChildren()) do
             if e:IsA("BlurEffect") or e:IsA("ColorCorrectionEffect") then
                 e.Enabled = false
@@ -1130,7 +1052,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 14. COORDS HUD
+-- 14. Coords HUD
 local function createGraceCoords()
     if GraceCache.coordsGui then return end
     local g = Instance.new("ScreenGui")
@@ -1163,7 +1085,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 15. ENTITY COUNTER
+-- 15. Entity Counter
 RunService.Heartbeat:Connect(function()
     if not State.GrEntityCounter then
         if GraceCache.counterGui then GraceCache.counterGui.gui.Enabled = false end
@@ -1190,7 +1112,7 @@ RunService.Heartbeat:Connect(function()
     GraceCache.counterGui.label.Text = "Entities: " .. #GraceCache.entities .. " | Doors: " .. #GraceCache.doors
 end)
 
--- 16. GRACE ROOM MARKER
+-- 16. Grace Room Marker
 RunService.Heartbeat:Connect(function()
     if not State.GrGraceRoomMarker then return end
     refreshGraceCache()
@@ -1212,7 +1134,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 17. AUTO CROUCH
+-- 17. Auto Crouch
 RunService.Heartbeat:Connect(function()
     if not State.GrAutoCrouch then return end
     local hum = getHum()
@@ -1225,7 +1147,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 18. FOOTSTEP MUTE
+-- 18. Footstep Mute
 RunService.Heartbeat:Connect(function()
     if not State.GrFootstepMute then return end
     for _, s in ipairs(SoundService:GetDescendants()) do
@@ -1241,7 +1163,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- 19. GRACE SKYBOX
+-- 19. Grace Sky Presets
 local graceSkyPresets = {
     Default = {ClockTime=14, Brightness=2, Ambient=Color3.fromRGB(70,70,70), FogEnd=500, FogColor=Color3.fromRGB(200,200,200)},
     Night = {ClockTime=0, Brightness=0.5, Ambient=Color3.fromRGB(20,20,30), FogEnd=300, FogColor=Color3.fromRGB(15,15,30)},
@@ -1260,7 +1182,7 @@ local function applyGracePreset(name)
     Lighting.FogColor = p.FogColor
 end
 
--- 20. SPEEDRUN TIMER
+-- 20. Speedrun Timer
 local function createGraceTimer()
     if GraceCache.timerGui then return end
     local g = Instance.new("ScreenGui")
@@ -1285,18 +1207,14 @@ RunService.Heartbeat:Connect(function()
     end
     createGraceTimer()
     GraceCache.timerGui.gui.Enabled = true
-    if not State.GrSpeedrunStart then
-        State.GrSpeedrunStart = tick()
-    end
+    if not State.GrSpeedrunStart then State.GrSpeedrunStart = tick() end
     local elapsed = math.floor(tick() - State.GrSpeedrunStart)
     local m = math.floor(elapsed / 60)
     local s = elapsed % 60
     GraceCache.timerGui.label.Text = string.format("⏱ %02d:%02d", m, s)
 end)
 
--- ============================================================
--- 21. AUTO OPEN DOORS (без E, з кешем, без лагів)
--- ============================================================
+-- 21. Auto Open Doors
 local autoDoorCache = {doors = {}, lastScan = 0, firedCooldown = {}}
 
 local function scanDoorsForAuto()
@@ -1333,11 +1251,10 @@ RunService.Heartbeat:Connect(function()
                         task.wait(0.03)
                         game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
                     end)
-                    -- Також пробуємо через ClickDetector, якщо є
                     pcall(function()
                         for _, desc in ipairs(door:GetDescendants()) do
                             if desc:IsA("ClickDetector") then
-                            pcall(function() fireclickdetector(desc) end)
+                                pcall(function() fireclickdetector(desc) end)
                             end
                         end
                     end)
@@ -1347,12 +1264,8 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ============================================================
--- 22. LOOK AWAY (Око, на яке НЕ МОЖНА дивитись)
--- ============================================================
--- Коли камера наближається до забороненого ока — примусово відвертаємо її.
+-- 22. Look Away
 local lookAwayState = {lastCheck = 0, forbiddenEyes = {}}
-
 local function scanForbiddenEyes()
     local now = tick()
     if now - lookAwayState.lastCheck < 1.5 then return end
@@ -1367,22 +1280,17 @@ local function scanForbiddenEyes()
         end
     end
 end
-
 RunService.RenderStepped:Connect(function()
     if not State.GrLookAway then return end
     scanForbiddenEyes()
     for _, eye in ipairs(lookAwayState.forbiddenEyes) do
         local base = eye:IsA("Model") and eye:FindFirstChildWhichIsA("BasePart") or (eye:IsA("BasePart") and eye) or nil
         if base then
-            -- Вектор від камери до ока
             local camPos = Camera.CFrame.Position
-            local eyePos = base.Position
-            local dirToEye = (eyePos - camPos).Unit
+            local dirToEye = (base.Position - camPos).Unit
             local lookDir = Camera.CFrame.LookVector
             local dot = dirToEye:Dot(lookDir)
-            -- Якщо камера дивиться прямо на око (dot близько 1) — відвертаємо
             if dot > 0.85 then
-                -- Примусово повертаємо камеру вбік
                 local side = Camera.CFrame.RightVector * (dot > 0.95 and -1 or 1)
                 local newLook = (lookDir + side * 2).Unit
                 Camera.CFrame = CFrame.new(camPos, camPos + newLook)
@@ -1391,38 +1299,23 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ============================================================
--- 23. ANTI-FORCED LOOK (Червоне око, яке ЗМУШУЄ дивитись)
--- ============================================================
--- Блокує будь-які спроби сервера/скрипта примусово повернути камеру.
-local antiForcedLook = {
-    lastCFrame = nil,
-    lastCheck = 0,
-    gracePeriod = 0.3,
-}
-
+-- 23. Anti-Forced Look
+local antiForcedLook = {lastCheck = 0}
 RunService.RenderStepped:Connect(function()
-    if not State.GrAntiForcedLook then
-        antiForcedLook.lastCFrame = Camera.CFrame
-        return end
-    -- Якщо гравець сам не рухає мишку — а камера різко повертається до ока —
-    -- ми це блокуємо, повертаючи камеру туди, де вона була.
+    if not State.GrAntiForcedLook then return end
     local now = tick()
     if now - antiForcedLook.lastCheck < 0.05 then return end
     antiForcedLook.lastCheck = now
-
     local currentLook = Camera.CFrame.LookVector
-    -- Шукаємо червоне/синє/будь-яке око
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("Model") or obj:IsA("BasePart") then
             local n = obj.Name:lower()
-            if n:find("red") and n:find("eye") or n:find("forced") or n:find("hypno") then
+            if (n:find("red") and n:find("eye")) or n:find("forced") or n:find("hypno") then
                 local base = obj:IsA("Model") and obj:FindFirstChildWhichIsA("BasePart") or obj
                 if base then
                     local dirToEye = (base.Position - Camera.CFrame.Position).Unit
                     local dot = dirToEye:Dot(currentLook)
                     if dot > 0.9 then
-                        -- Камера занадто сильно дивиться на око — відвертаємо
                         local side = Camera.CFrame.RightVector * 3
                         local newLook = (currentLook + side).Unit
                         Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + newLook)
@@ -1434,10 +1327,10 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ============================================================
--- УТИЛІТИ (9 штук)
+-- УТИЛІТИ (9)
 -- ============================================================
 
--- ---------- 1. FPS Unlocker ----------
+-- 1. FPS Unlocker
 if not IS_MOBILE then
     task.spawn(function()
         while true do
@@ -1451,7 +1344,7 @@ if not IS_MOBILE then
     end)
 end
 
--- ---------- 2. Server Info HUD (FPS, Ping, Players, Uptime) ----------
+-- 2. Server Info HUD
 local serverHudStart = tick()
 local serverHudGui = nil
 local fpsCounter = {count = 0, last = tick(), value = 60}
@@ -1507,7 +1400,7 @@ task.spawn(function()
     end
 end)
 
--- ---------- 3. Script Logger (пише всі дії в консоль) ----------
+-- 3. Script Logger
 local loggerGui = nil
 local logBuffer = {}
 local function logAction(text)
@@ -1532,14 +1425,14 @@ local function createLoggerGui()
     local s = Instance.new("UIStroke", f)
     s.Color = Color3.fromRGB(120, 90, 220)
     s.Thickness = 1
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 24)
-    title.BackgroundTransparency = 1
-    title.Text = "ROCKET Log"
-    title.TextColor3 = Color3.fromRGB(200, 180, 255)
-    title.Font = Enum.Font.GothamBold
-    title.TextSize = 12
-    title.Parent = f
+    local ttl = Instance.new("TextLabel")
+    ttl.Size = UDim2.new(1, 0, 0, 24)
+    ttl.BackgroundTransparency = 1
+    ttl.Text = "ROCKET Log"
+    ttl.TextColor3 = Color3.fromRGB(200, 180, 255)
+    ttl.Font = Enum.Font.GothamBold
+    ttl.TextSize = 12
+    ttl.Parent = f
     local close = Instance.new("TextButton")
     close.Size = UDim2.new(0, 22, 0, 20)
     close.Position = UDim2.new(1, -26, 0, 2)
@@ -1551,7 +1444,6 @@ local function createLoggerGui()
     close.Parent = f
     local cc = Instance.new("UICorner", close) cc.CornerRadius = UDim.new(0, 4)
     close.MouseButton1Click:Connect(function() f.Visible = false end)
-
     local log = Instance.new("ScrollingFrame")
     log.Size = UDim2.new(1, -10, 1, -30)
     log.Position = UDim2.new(0, 5, 0, 26)
@@ -1566,8 +1458,6 @@ local function createLoggerGui()
     lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         log.CanvasSize = UDim2.new(0, 0, 0, lay.AbsoluteContentSize.Y + 10)
     end)
-
-    -- додаємо поточні логи
     for _, line in ipairs(logBuffer) do
         local l = Instance.new("TextLabel")
         l.Size = UDim2.new(1, -8, 0, 16)
@@ -1580,23 +1470,20 @@ local function createLoggerGui()
         l.Parent = log
         table.insert(texts, l)
     end
-
     loggerGui = {gui = g, frame = f, log = log, layout = lay, texts = texts}
 end
 
--- ---------- 4. Auto Reconnect (при викиді — авто-перезахід) ----------
+-- 4. Auto Reconnect
 LocalPlayer.OnTeleport:Connect(function(state)
     if not State.UtilAutoReconnect then return end
     if state == Enum.TeleportState.Failed then
         logAction("Teleport failed — авто-перезахід")
         task.wait(2)
-        pcall(function()
-            TeleportService:Teleport(game.PlaceId, LocalPlayer)
-        end)
+        pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
     end
 end)
 
--- ---------- 5. Screenshot Saver ----------
+-- 5. Screenshot Saver
 local function takeScreenshot()
     local ok, err = pcall(function()
         local capture = game:GetService("CaptureService")
@@ -1621,53 +1508,27 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
--- ---------- 6. Multi-Instance (Roblox другого вікна) ----------
+-- 6. Multi-Instance
 local function openNewInstance()
     pcall(function()
-        local success, result = pcall(function()
-            -- пробуємо через Hyperion (Bloxstrap/Roblox Studio)
-            local process = tostring(game:GetService("RunService"):IsStudio())
-            -- fallback: даємо пораду
-            Notify("Multi-Instance", "Запусти Bloxstrap → Allow Multi Instance → OK", "info")
-        end)
+        Notify("Multi-Instance", "Запусти Bloxstrap → Allow Multi Instance → OK", "info")
     end)
     logAction("Multi-Instance: запуск нового вікна через Bloxstrap")
 end
 
--- ---------- 7. Anti-Ban (базові перевірки) ----------
+-- 7. Anti-Ban (basic)
 local antiBanActive = true
-RunService.Heartbeat:Connect(function()
-    if not antiBanActive then return end
-    -- Не даємо серверу читати підозрілі властивості
-    pcall(function()
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then
-                local hum = p.Character:FindFirstChildOfClass("Humanoid")
-                if hum and hum.Health > 0 then
-                    -- Захист від teleport detection
-                    local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-                    if hrp then
-                        -- нічого не робимо, просто підтримуємо живий цикл
-                    end
-                end
-            end
-        end
-    end)
-end)
 
--- ---------- 8. Discord RPC ----------
--- (обмежено в Roblox; показуємо сповіщення)
+-- 8. Discord RPC
 local function updateDiscordRpc()
     if not State.UtilDiscordRpc then return end
     pcall(function()
-        -- Roblox не має прямого Discord RPC API без сторонніх бібліотек
-        -- У Solara можна через setclipboard або webhook
         local gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
         logAction("Discord RPC: " .. gameName)
     end)
 end
 
--- ---------- 9. Theme System ----------
+-- 9. Theme System
 local themeColors = {
     purple = Color3.fromRGB(120, 90, 220),
     blue   = Color3.fromRGB(60, 140, 220),
@@ -1683,7 +1544,6 @@ local function applyTheme(name)
     Settings.UtilAccent = col
     if stroke then stroke.Color = col end
     if title then title.BackgroundColor3 = Color3.fromRGB(col.R*0.3, col.G*0.3, col.B*0.3) end
-    -- Перефарбовуємо всі активні кнопки
     for _, p in pairs(pages) do
         if p.btn.BackgroundColor3 ~= Color3.fromRGB(30,32,45) and not p.isSettings then
             p.btn.BackgroundColor3 = col
@@ -1692,31 +1552,6 @@ local function applyTheme(name)
     if serverHudGui then serverHudGui.label.TextColor3 = col end
     logAction("Theme changed: " .. name)
 end
-
--- ---------- Keybinds ----------
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
-    if IS_MOBILE then return end
-    if input.KeyCode == Settings.UtilGuiKey then
-        opened = not opened
-        if opened then
-            sidebar.Visible = true content.Visible = true
-            TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = UDim2.new(0, 620, 0, 500)}):Play()
-            closeBtn.Text = "—"
-        else
-            local tween = TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = UDim2.new(0, 620, 0, 36)})
-            tween:Play()
-            tween.Completed:Connect(function()
-                if not opened then
-                    sidebar.Visible = false content.Visible = false
-                end
-            end)
-            closeBtn.Text = "+"
-        end
-        logAction("GUI toggled via keybind")
-    end
-end)
-
 
 -- ============================================================
 -- SERVER HOP
@@ -1816,9 +1651,6 @@ content.BorderSizePixel = 0
 content.Parent = main
 local ccc = Instance.new("UICorner", content) ccc.CornerRadius = UDim.new(0, 8)
 
--- ============================================================
--- ПЛАВАЮЧА КНОПКА ДЛЯ МОБІЛЬНОГО
--- ============================================================
 if IS_MOBILE then
     local mobileBtn = Instance.new("TextButton")
     mobileBtn.Name = "ROCKET_MobileBtn"
@@ -1836,12 +1668,9 @@ if IS_MOBILE then
     local mbs = Instance.new("UIStroke", mobileBtn)
     mbs.Color = Color3.fromRGB(180, 140, 255)
     mbs.Thickness = 2
-
     mobileBtn.MouseButton1Click:Connect(function()
         main.Visible = not main.Visible
     end)
-
-    -- Спочатку панель прихована, показуємо тільки кнопку
     main.Visible = false
 else
     main.Visible = true
@@ -2021,7 +1850,7 @@ local function makeTextBox(parent, default, placeholder, cb)
 end
 
 -- ============================================================
--- ІНШІ СТОРІНКИ (Doors, Brookhaven, Killstreak, Arsenal, RIVALS, MM2, Build A Boat, Blox Fruits, Other, Settings)
+-- СТОРІНКИ
 -- ============================================================
 local pDoors = newPage("Doors")
 makeLabel(pDoors, "— Doors —")
@@ -2049,10 +1878,14 @@ makeButton(pDoors, "TP до найдальших дверей", function()
                 local d = (base.Position - hrp.Position).Magnitude
                 if d > dist then best, dist = base, d end
             end
-        end        if best then hrp.CFrame = CFrame.new(best.Position + Vector3.new(0,4,0)) end
+        end
+        if best then hrp.CFrame = CFrame.new(best.Position + Vector3.new(0,4,0)) end
     end)
 end)
-makeButton(pDoors, "Rejoin", function() Notify("Rejoin", "Перезахід...", "info") TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+makeButton(pDoors, "Rejoin", function()
+    Notify("Rejoin", "Перезахід...", "info")
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+end)
 
 local pBH = newPage("Brookhaven")
 makeLabel(pBH, "— Небо —")
@@ -2070,7 +1903,10 @@ makeSlider(pBH, "Fly Speed", 50, 500, 120, function(v) State.FlySpeed = v end)
 makeToggle(pBH, "Noclip", false, function(on) State.Noclip = on end)
 makeToggle(pBH, "ESP Players", false, function(on) State.ESP = on end)
 makeToggle(pBH, "Fullbright", false, function(on) State.Fullbright = on end)
-makeButton(pBH, "Rejoin", function() Notify("Rejoin", "Перезахід...", "info") TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+makeButton(pBH, "Rejoin", function()
+    Notify("Rejoin", "Перезахід...", "info")
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+end)
 
 local pKS = newPage("Killstreak")
 makeLabel(pKS, "— Killstreak (safe) —")
@@ -2141,30 +1977,15 @@ makeToggle(pBa, "Auto Collect Treasure", false, function(on) State.BaAutoCollect
 makeToggle(pBa, "Fullbright", false, function(on) State.Fullbright = on end)
 makeSlider(pBa, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
 makeButton(pBa, "Server Hop", serverHop)
-makeButton(pBa, "Rejoin", function() Notify("Rejoin", "Перезахід...", "info") TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+makeButton(pBa, "Rejoin", function()
+    Notify("Rejoin", "Перезахід...", "info")
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+end)
 
--- ============================================================
--- ГРАЦЕ — 20 ФУНКЦІЙ
--- ============================================================
 local pGr = newPage("Grace")
 makeLabel(pGr, "— ESP та сенсори —")
 makeToggle(pGr, "ESP Players", false, function(on) State.GrEsp = on end)
 makeToggle(pGr, "Tracers", false, function(on) State.GrTracers = on end)
-local function toggleGraceHighlight(on)
-    for _, h in pairs(GraceCache.entityHls) do h:Destroy() end
-    GraceCache.entityHls = {}
-    if not on then return end
-    refreshGraceCache()
-    for _, obj in ipairs(GraceCache.entities) do
-        local hl = Instance.new("Highlight")
-        hl.Adornee = obj
-        hl.FillColor = Color3.fromRGB(255, 80, 200)
-        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-        hl.FillTransparency = 0.5
-        hl.Parent = obj
-        table.insert(GraceCache.entityHls, hl)
-    end
-end
 makeToggle(pGr, "Highlight Entities/Doors", false, function(on)
     toggleGraceHighlight(on)
     toggleGraceDoorHighlight(on)
@@ -2172,25 +1993,21 @@ end)
 makeToggle(pGr, "Item ESP", false, toggleGraceItemEsp)
 makeToggle(pGr, "Entity Distance HUD", false, function(on) State.GrEntityDistance = on end)
 makeToggle(pGr, "Entity Counter", false, function(on) State.GrEntityCounter = on end)
-
 makeLabel(pGr, "— Тривоги —")
 makeToggle(pGr, "Entity Alarm", false, function(on) State.GrEntityAlarm = on end)
 makeSlider(pGr, "Alarm Radius", 10, 150, 40, function(v) State.GrEntityAlarmRadius = v end)
 makeToggle(pGr, "Rush Alarm", false, function(on) State.GrRushAlarm = on end)
-
 makeLabel(pGr, "— Виживання —")
 makeToggle(pGr, "Safe Zone Finder", false, function(on) State.GrSafeZoneFinder = on end)
 makeToggle(pGr, "Auto Hide", false, toggleGraceAutoHide)
 makeToggle(pGr, "Auto Crouch (Ctrl)", false, function(on) State.GrAutoCrouch = on end)
 makeToggle(pGr, "Mute Ambient Sounds", false, function(on) muteAmbientSounds(on) end)
-
 makeLabel(pGr, "— Камера та HUD —")
 makeSlider(pGr, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
 makeToggle(pGr, "Crosshair", false, toggleGraceCrosshair)
 makeToggle(pGr, "Coords HUD", false, function(on) State.GrCoordsHud = on end)
 makeToggle(pGr, "Third Person", false, function(on) State.GrThirdPerson = on end)
 makeSlider(pGr, "TP Distance", 3, 20, 8, function(v) State.GrThirdPersonDist = v end)
-
 makeLabel(pGr, "— Оточення —")
 makeToggle(pGr, "Fullbright", false, function(on) State.GrFullbright = on State.Fullbright = on end)
 makeToggle(pGr, "No Fog / No Blur", false, function(on) State.GrNoFog = on end)
@@ -2198,13 +2015,11 @@ makeButton(pGr, "☀️ Sky: Calm", function() safe("Sky", function() applyGrace
 makeButton(pGr, "🌙 Sky: Night", function() safe("Sky", function() applyGracePreset("Night") end) end)
 makeButton(pGr, "🩸 Sky: Blood", function() safe("Sky", function() applyGracePreset("Blood") end) end)
 makeButton(pGr, "🌫 Sky: Fog", function() safe("Sky", function() applyGracePreset("Fog") end) end)
-
 makeLabel(pGr, "— Рух —")
 makeSlider(pGr, "Speed", 16, 60, 20, function(v) State.Speed = v applyHumanoid() end)
 makeToggle(pGr, "Speed Boost (LeftShift)", false, function(on) State.GrSpeedBoost = on end)
 makeToggle(pGr, "Noclip", false, function(on) State.Noclip = on end)
 makeToggle(pGr, "Inf Jump", false, function(on) State.InfJump = on end)
-
 makeLabel(pGr, "— Двері та Очі —")
 makeToggle(pGr, "Auto Open Doors (без E)", false, function(on) State.GrAutoOpenDoors = on end)
 makeToggle(pGr, "Look Away від ока", false, function(on) State.GrLookAway = on end)
@@ -2223,7 +2038,6 @@ makeButton(pGr, "🔄 Скинути таймер", function()
     State.GrSpeedrunStart = tick()
     Notify("Timer", "Таймер скинуто", "success")
 end)
-
 makeButton(pGr, "Server Hop", serverHop)
 
 local pBF = newPage("Blox Fruits")
@@ -2250,8 +2064,15 @@ makeToggle(pOther, "Fullbright", false, function(on) State.Fullbright = on end)
 makeToggle(pOther, "Click TP", false, function(on) State.ClickTP = on end)
 makeToggle(pOther, "Anti-AFK", true, function(on) State.AntiAFK = on end)
 makeLabel(pOther, "— Утиліти —")
-makeButton(pOther, "Reset Character", function() safe("Reset", function() local hum = getHum() if hum then hum.Health = 0 end end) end)
-makeButton(pOther, "Rejoin", function() Notify("Rejoin", "Перезахід...", "info") TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+makeButton(pOther, "Reset Character", function()
+    safe("Reset", function()
+        local hum = getHum() if hum then hum.Health = 0 end
+    end)
+end)
+makeButton(pOther, "Rejoin", function()
+    Notify("Rejoin", "Перезахід...", "info")
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+end)
 makeButton(pOther, "Server Hop", serverHop)
 makeButton(pOther, "Unload ROCKET HUB", function()
     stopFly()
@@ -2280,7 +2101,6 @@ makeButton(pOther, "Unload ROCKET HUB", function()
     if GraceCache.counterGui then GraceCache.counterGui.gui:Destroy() end
     if GraceCache.distanceGui then GraceCache.distanceGui.gui:Destroy() end
     if GraceCache.safeZoneArrow then GraceCache.safeZoneArrow.gui:Destroy() end
-        for _, d in pairs(autoDoorCache.firedCooldown) do end
     autoDoorCache.doors = {}
     autoDoorCache.firedCooldown = {}
     lookAwayState.forbiddenEyes = {}
@@ -2290,23 +2110,17 @@ makeButton(pOther, "Unload ROCKET HUB", function()
     notifGui:Destroy()
 end, Color3.fromRGB(90, 30, 40))
 
--- ============================================================
--- СТОРІНКА: UTILITIES
--- ============================================================
 local pUtil = newPage("🛠 Utilities")
-
 makeLabel(pUtil, "— Продуктивність —")
 makeToggle(pUtil, "FPS Unlocker (999)", false, function(on)
     State.UtilFpsUnlock = on
     logAction("FPS Unlock: " .. (on and "ON" or "OFF"))
 end)
-
 makeLabel(pUtil, "— Інформація —")
 makeToggle(pUtil, "Server Info HUD", false, function(on)
     State.UtilServerHud = on
     logAction("Server HUD: " .. (on and "ON" or "OFF"))
 end)
-
 makeToggle(pUtil, "Script Logger", Settings.UtilScriptLogger, function(on)
     Settings.UtilScriptLogger = on
     logAction("Logger: " .. (on and "ON" or "OFF"))
@@ -2315,7 +2129,6 @@ makeButton(pUtil, "Показати вікно логів", function()
     createLoggerGui()
     if loggerGui then loggerGui.frame.Visible = true end
 end)
-
 makeLabel(pUtil, "— Мережа —")
 makeToggle(pUtil, "Auto Reconnect", false, function(on)
     State.UtilAutoReconnect = on
@@ -2328,27 +2141,24 @@ if not IS_MOBILE then
     makeButton(pUtil, "📸 Зробити скріншот", function()
         takeScreenshot()
     end)
-
     makeLabel(pUtil, "— Multi-Instance —")
     makeButton(pUtil, "🌐 Відкрити інструкцію", function()
         openNewInstance()
         Notify("Multi-Instance", "1. Скачай Bloxstrap, 2. Увімкни Allow Multi Instance, 3. Запусти 2 вікна Roblox", "info")
     end)
-end   -- ← ОСЬ ЦЕЙ "end" ТИ ЗАБУВ
+end
 
 makeLabel(pUtil, "— Anti-Ban —")
 makeToggle(pUtil, "Anti-Ban (basic)", true, function(on)
     antiBanActive = on
     logAction("Anti-Ban: " .. (on and "ON" or "OFF"))
 end)
-
 makeLabel(pUtil, "— Discord RPC —")
 makeToggle(pUtil, "Discord RPC", false, function(on)
     State.UtilDiscordRpc = on
     logAction("Discord RPC: " .. (on and "ON" or "OFF"))
     if on then updateDiscordRpc() end
 end)
-
 makeLabel(pUtil, "— Тема —")
 makeButton(pUtil, "🟣 Purple", function() applyTheme("purple") end)
 makeButton(pUtil, "🔵 Blue", function() applyTheme("blue") end)
@@ -2356,11 +2166,9 @@ makeButton(pUtil, "🟢 Green", function() applyTheme("green") end)
 makeButton(pUtil, "🔴 Red", function() applyTheme("red") end)
 makeButton(pUtil, "⚫ Dark", function() applyTheme("dark") end)
 makeButton(pUtil, "⚪ Light", function() applyTheme("light") end)
-
 makeLabel(pUtil, "— Keybinds —")
 makeLabel(pUtil, "RightShift — Toggle GUI", Color3.fromRGB(180,180,180))
 makeLabel(pUtil, "P — Screenshot", Color3.fromRGB(180,180,180))
-
 
 local pSet = newPage("⚙ Settings", true)
 makeLabel(pSet, "— Сповіщення —")
@@ -2381,8 +2189,6 @@ makeButton(pSet, "Тест: Success", function() Notify("Тест", "Це усп
 makeButton(pSet, "Тест: Error", function() Notify("Тест", "Це помилка!", "error") end)
 makeButton(pSet, "Тест: Warn", function() Notify("Тест", "Це попередження!", "warn") end)
 makeButton(pSet, "Тест: Info", function() Notify("Тест", "Це інформація", "info") end)
-makeLabel(pSet, "— Скидання —")
-
 makeLabel(pSet, "— Логер —")
 makeToggle(pSet, "Script Logger", Settings.UtilScriptLogger, function(on)
     Settings.UtilScriptLogger = on
@@ -2428,6 +2234,31 @@ closeBtn.MouseButton1Click:Connect(function()
             end
         end)
         closeBtn.Text = "+"
+    end
+end)
+
+-- Keybind RightShift
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if IS_MOBILE then return end
+    if input.KeyCode == Settings.UtilGuiKey then
+        opened = not opened
+        if opened then
+            sidebar.Visible = true
+            content.Visible = true
+            TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = UDim2.new(0, GUI_W, 0, GUI_H)}):Play()
+            closeBtn.Text = "—"
+        else
+            local tween = TweenService:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {Size = UDim2.new(0, GUI_W, 0, 36)})
+            tween:Play()
+            tween.Completed:Connect(function()
+                if not opened then
+                    sidebar.Visible = false
+                    content.Visible = false
+                end
+            end)
+            closeBtn.Text = "+"
+        end
     end
 end)
 
