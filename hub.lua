@@ -64,6 +64,26 @@ local State = {
     GrAutoOpenDoors = false, GrLookAway = false, GrAntiForcedLook = false,
     UtilFpsUnlock = false, UtilServerHud = false, UtilAutoReconnect = false,
     UtilScreenshotKey = Enum.KeyCode.P, UtilDiscordRpc = false,
+        -- Doors Extended
+    DoorsAutoCoins = false,
+    DoorsAutoDrawers = false,
+    DoorsAutoItems = false,
+    DoorsSmartHide = false,
+
+    -- Fun
+    FunBigHead = false,
+    FunTinyBody = false,
+    FunRainbowChar = false,
+    FunSpinChar = false,
+    FunGhostMode = false,
+    FunTornado = false,
+    FunClone = false,
+    FunInvisible = false,
+    FunConfetti = false,
+    FunCustomSkybox = false,
+
+    -- Save/Load
+    AutoSave = false,
 }
 
 local Settings = {
@@ -220,6 +240,78 @@ local function safe(label, fn)
     if ok then Notify(label, "Успішно активовано", "success")
     else Notify(label, "Помилка: " .. tostring(err), "error") end
 end
+
+-- ============================================================
+-- SAVE / LOAD SETTINGS
+-- ============================================================
+local SAVE_FILE = "rocket_hub_settings.json"
+
+local function hasFileIO()
+    return type(writefile) == "function" and type(readfile) == "function" and type(isfile) == "function"
+end
+
+local function saveSettings()
+    if not hasFileIO() then
+        Notify("Save", "Інжектор не підтримує файли", "warn")
+        return false
+    end
+    local ok, err = pcall(function()
+        local data = {
+            State = State,
+            Settings = Settings,
+        }
+        writefile(SAVE_FILE, HttpService:JSONEncode(data))
+    end)
+    if ok then
+        Notify("Save", "Налаштування збережено", "success")
+    else
+        Notify("Save", "Помилка: " .. tostring(err), "error")
+    end
+    return ok
+end
+
+local function loadSettings()
+    if not hasFileIO() then
+        Notify("Load", "Інжектор не підтримує файли", "warn")
+        return false
+    end
+    if not isfile(SAVE_FILE) then
+        Notify("Load", "Файл не знайдено. Спочатку збережи.", "warn")
+        return false
+    end
+    local ok, err = pcall(function()
+        local raw = readfile(SAVE_FILE)
+        local data = HttpService:JSONDecode(raw)
+        if data.State then
+            for k, v in pairs(data.State) do
+                if State[k] ~= nil then State[k] = v end
+            end
+        end
+        if data.Settings then
+            for k, v in pairs(data.Settings) do
+                if Settings[k] ~= nil then Settings[k] = v end
+            end
+        end
+    end)
+    if ok then
+        Notify("Load", "Налаштування завантажено", "success")
+        applyHumanoid()
+    else
+        Notify("Load", "Помилка: " .. tostring(err), "error")
+    end
+    return ok
+end
+
+-- Автозбереження кожні 30 секунд (якщо увімкнено)
+task.spawn(function()
+    while true do
+        task.wait(30)
+        if State.AutoSave then
+            saveSettings()
+        end
+    end
+end)
+
 
 -- ============================================================
 -- FLY
@@ -546,6 +638,157 @@ local function toggleDoorsHighlights(on)
         table.insert(itemHL, hl)
     end
 end
+
+-- ============================================================
+-- DOORS EXTENDED
+-- ============================================================
+
+-- Auto Collect Coins
+task.spawn(function()
+    while true do
+        task.wait(0.8)
+        if State.DoorsAutoCoins then
+            local hrp = getHRP()
+            if hrp then
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    if obj:IsA("BasePart") or obj:IsA("Model") then
+                        local n = obj.Name:lower()
+                        if n:find("coin") or n:find("gold") or n:find("money") then
+                            local base = obj:IsA("Model") and obj:FindFirstChildWhichIsA("BasePart") or obj
+                            if base and (base.Position - hrp.Position).Magnitude < 40 then
+                                pcall(function() base.CFrame = hrp.CFrame end)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Auto Open Drawers
+task.spawn(function()
+    local drawerCooldown = {}
+    while true do
+        task.wait(0.6)
+        if State.DoorsAutoDrawers then
+            local hrp = getHRP()
+            if hrp then
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    if obj:IsA("Model") or obj:IsA("BasePart") then
+                        local n = obj.Name:lower()
+                        if n:find("drawer") or n:find("cabinet") or n:find("chest") then
+                            local base = obj:IsA("Model") and obj:FindFirstChildWhichIsA("BasePart") or obj
+                            if base then
+                                local d = (base.Position - hrp.Position).Magnitude
+                                local key = tostring(obj)
+                                if d < 12 and (not drawerCooldown[key] or tick() - drawerCooldown[key] > 1) then
+                                    drawerCooldown[key] = tick()
+                                    pcall(function()
+                                        local vim = game:GetService("VirtualInputManager")
+                                        vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                                        task.wait(0.03)
+                                        vim:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                                    end)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Auto Collect Items (keys, crucifix, lighter, lockpick)
+task.spawn(function()
+    while true do
+        task.wait(0.8)
+        if State.DoorsAutoItems then
+            local hrp = getHRP()
+            if hrp then
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    if obj:IsA("Model") or obj:IsA("BasePart") then
+                        local n = obj.Name:lower()
+                        if n:find("key") or n:find("crucifix") or n:find("lighter") or n:find("lockpick") or n:find("vitamin") then
+                            local base = obj:IsA("Model") and obj:FindFirstChildWhichIsA("BasePart") or obj
+                            if base and (base.Position - hrp.Position).Magnitude < 40 then
+                                pcall(function() base.CFrame = hrp.CFrame end)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Smart Auto Hide (тільки під час Rush/Ambush/Entity)
+local smartHideConn
+local smartHideState = { inHide = false, hideStart = 0 }
+local function toggleDoorsSmartHide(on)
+    if smartHideConn then smartHideConn:Disconnect() smartHideConn = nil end
+    smartHideState.inHide = false
+    if not on then return end
+    smartHideConn = RunService.Heartbeat:Connect(function()
+        if not State.DoorsSmartHide then return end
+        local hrp = getHRP()
+        if not hrp then return end
+
+        -- Перевірка наявності Rush/Ambush/Entity
+        local danger = false
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("Model") or obj:IsA("BasePart") then
+                local n = obj.Name:lower()
+                if n:find("rush") or n:find("ambush") or n:find("seek")
+                   or n:find("figure") or n:find("hide") == false and n:find("monster") then
+                    local base = obj:IsA("Model") and obj:FindFirstChildWhichIsA("BasePart") or obj
+                    if base and (base.Position - hrp.Position).Magnitude < 100 then
+                        danger = true
+                        break
+                    end
+                end
+            end
+        end
+
+        if danger and not smartHideState.inHide then
+            -- Знайти найближчу шафу
+            refreshCache()
+            local nearest, dist = nil, 20
+            for _, obj in ipairs(Cache.furniture) do
+                local base = obj:IsA("Model") and obj:FindFirstChildWhichIsA("BasePart") or obj
+                if base then
+                    local d = (base.Position - hrp.Position).Magnitude
+                    if d < dist then nearest, dist = base, d end
+                end
+            end
+            if nearest then
+                hrp.CFrame = CFrame.new(nearest.Position + Vector3.new(0, 2, 0))
+                task.wait(0.1)
+                pcall(function()
+                    local vim = game:GetService("VirtualInputManager")
+                    vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                    task.wait(0.05)
+                    vim:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                end)
+                smartHideState.inHide = true
+                smartHideState.hideStart = tick()
+            end
+        elseif not danger and smartHideState.inHide then
+            -- Вийти з укриття
+            if tick() - smartHideState.hideStart > 2 then
+                pcall(function()
+                    local vim = game:GetService("VirtualInputManager")
+                    vim:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                    task.wait(0.05)
+                    vim:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                end)
+                smartHideState.inHide = false
+            end
+        end
+    end)
+end
+
 
 RunService.Heartbeat:Connect(function()
     if not State.DoorsRushAlarm then return end
@@ -1868,6 +2111,15 @@ makeToggle(pDoors, "Noclip", false, function(on) State.Noclip = on end)
 makeToggle(pDoors, "Auto Hide (шкафи)", false, toggleDoorsAutoHide)
 makeToggle(pDoors, "Highlight Doors/Items", false, toggleDoorsHighlights)
 makeToggle(pDoors, "Rush Alarm", false, function(on) State.DoorsRushAlarm = on end)
+makeLabel(pDoors, "— Auto Farm (Doors) —")
+makeToggle(pDoors, "Auto Collect Coins", false, function(on) State.DoorsAutoCoins = on end)
+makeToggle(pDoors, "Auto Open Drawers", false, function(on) State.DoorsAutoDrawers = on end)
+makeToggle(pDoors, "Auto Collect Items (keys/crucifix)", false, function(on) State.DoorsAutoItems = on end)
+makeToggle(pDoors, "Smart Auto Hide (тільки під час Rush)", false, function(on)
+    State.DoorsSmartHide = on
+    toggleDoorsSmartHide(on)
+end)
+makeLabel(pDoors, "⚠ Smart Hide: ховається при Rush/Ambush/Monster, виходить коли безпечно")
 makeToggle(pDoors, "Fullbright", false, function(on) State.Fullbright = on end)
 makeButton(pDoors, "TP вгору на 100 studs", function()
     safe("TP вгору", function()
@@ -1940,6 +2192,226 @@ makeToggle(pRv, "Camera Lock (Q)", false, function(on) State.RvCamLock = on end)
 makeToggle(pRv, "Fullbright", false, function(on) State.Fullbright = on end)
 makeSlider(pRv, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
 makeButton(pRv, "Server Hop", serverHop)
+
+-- ============================================================
+-- FUN — ВІЗУАЛЬНИЙ ТРОЛЛІНГ (локально)
+-- ============================================================
+
+-- Big Head
+local funBigHeadConn
+local function toggleFunBigHead(on)
+    if funBigHeadConn then funBigHeadConn:Disconnect() funBigHeadConn = nil end
+    if not on then return end
+    funBigHeadConn = RunService.Heartbeat:Connect(function()
+        if not State.FunBigHead then return end
+        local char = LocalPlayer.Character
+        if not char then return end
+        local head = char:FindFirstChild("Head")
+        if head and head:IsA("BasePart") then
+            head.Size = Vector3.new(2, 2, 2)
+            local mesh = head:FindFirstChildOfClass("SpecialMesh")
+            if mesh then mesh.Scale = Vector3.new(3, 3, 3) end
+        end
+    end)
+end
+
+-- Tiny Body
+local funTinyConn
+local function toggleFunTinyBody(on)
+    if funTinyConn then funTinyConn:Disconnect() funTinyConn = nil end
+    if not on then return end
+    funTinyConn = RunService.Heartbeat:Connect(function()
+        if not State.FunTinyBody then return end
+        local char = LocalPlayer.Character
+        if not char then return end
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.Size = part.Size * 0.5
+            end
+        end
+    end)
+end
+
+-- Rainbow Character
+local funRainbowConn
+local function toggleFunRainbow(on)
+    if funRainbowConn then funRainbowConn:Disconnect() funRainbowConn = nil end
+    if not on then return end
+    funRainbowConn = RunService.Heartbeat:Connect(function()
+        if not State.FunRainbowChar then return end
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hue = (tick() * 0.5) % 1
+        local col = Color3.fromHSV(hue, 1, 1)
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.Color = col
+                if part:FindFirstChildOfClass("Decal") then
+                    part:FindFirstChildOfClass("Decal").Transparency = 1
+                end
+            end
+        end
+    end)
+end
+
+-- Spin Character
+local funSpinConn
+local function toggleFunSpin(on)
+    if funSpinConn then funSpinConn:Disconnect() funSpinConn = nil end
+    if not on then return end
+    funSpinConn = RunService.Heartbeat:Connect(function(dt)
+        if not State.FunSpinChar then return end
+        local hrp = getHRP()
+        if hrp then
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, dt * 5, 0)
+        end
+    end)
+end
+
+-- Ghost Mode (напівпрозорість)
+local funGhostConn
+local function toggleFunGhost(on)
+    if funGhostConn then funGhostConn:Disconnect() funGhostConn = nil end
+    if not on then
+        local char = LocalPlayer.Character
+        if char then
+            for _, p in ipairs(char:GetDescendants()) do
+                if p:IsA("BasePart") then p.LocalTransparencyModifier = 0 end
+            end
+        end
+        return
+    end
+    funGhostConn = RunService.Heartbeat:Connect(function()
+        if not State.FunGhostMode then return end
+        local char = LocalPlayer.Character
+        if not char then return end
+        for _, p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") then p.LocalTransparencyModifier = 0.7 end
+        end
+    end)
+end
+
+-- Tornado (крутить гравця)
+local funTornadoConn
+local function toggleFunTornado(on)
+    if funTornadoConn then funTornadoConn:Disconnect() funTornadoConn = nil end
+    if not on then return end
+    funTornadoConn = RunService.Heartbeat:Connect(function(dt)
+        if not State.FunTornado then return end
+        local hrp = getHRP()
+        if hrp then
+            hrp.CFrame = hrp.CFrame * CFrame.Angles(0, dt * 15, 0) + Vector3.new(0, 0.05, 0)
+        end
+    end)
+end
+
+-- Clone (клон поруч)
+local funCloneConn
+local funClones = {}
+local function toggleFunClone(on)
+    if funCloneConn then funCloneConn:Disconnect() funCloneConn = nil end
+    for _, c in ipairs(funClones) do c:Destroy() end
+    funClones = {}
+    if not on then return end
+    funCloneConn = RunService.Heartbeat:Connect(function()
+        if not State.FunClone then return end
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        -- Створюємо "клон" (копію HRP з Highlight)
+        if #funClones < 3 then
+            local clone = Instance.new("Part")
+            clone.Size = Vector3.new(2, 5, 1)
+            clone.Anchored = false
+            clone.CanCollide = false
+            clone.Material = Enum.Material.Neon
+            clone.Color = Color3.fromRGB(120, 220, 255)
+            clone.Transparency = 0.5
+            clone.CFrame = hrp.CFrame * CFrame.new(math.random(-3, 3), 0, math.random(-3, 3))
+            clone.Parent = workspace
+            table.insert(funClones, clone)
+        end
+    end)
+end
+
+-- Invisible (повна невидимість локально)
+local funInvisConn
+local function toggleFunInvisible(on)
+    if funInvisConn then funInvisConn:Disconnect() funInvisConn = nil end
+    if not on then
+        local char = LocalPlayer.Character
+        if char then
+            for _, p in ipairs(char:GetDescendants()) do
+                if p:IsA("BasePart") then p.LocalTransparencyModifier = 0 end
+            end
+        end
+        return
+    end
+    funInvisConn = RunService.Heartbeat:Connect(function()
+        if not State.FunInvisible then return end
+        local char = LocalPlayer.Character
+        if not char then return end
+        for _, p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") then p.LocalTransparencyModifier = 1 end
+        end
+    end)
+end
+
+-- Confetti (частинки навколо)
+local funConfettiConn = nil
+local function toggleFunConfetti(on)
+    if funConfettiConn then
+        funConfettiConn:Destroy()
+        funConfettiConn = nil
+    end
+    if not on then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local emitter = Instance.new("ParticleEmitter")
+    emitter.Name = "ROCKET_Confetti"
+    emitter.Texture = "rbxassetid://241876428"
+    emitter.Rate = 30
+    emitter.Lifetime = NumberRange.new(1)
+    emitter.Speed = NumberRange.new(15)
+    emitter.SpreadAngle = Vector2.new(45, 45)
+    emitter.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 80, 80)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80, 255, 120)),
+        ColorSequenceKeypoint(1, Color3.fromRGB(80, 160, 255)),
+    })
+    emitter.Parent = hrp
+    funConfettiConn = emitter
+end
+
+-- Custom Skybox (Rainbow sky)
+local funSkyboxOriginal = nil
+local function toggleFunCustomSkybox(on)
+    if on then
+        if not funSkyboxOriginal then
+            funSkyboxOriginal = {
+                Ambient = Lighting.Ambient,
+                OutdoorAmbient = Lighting.OutdoorAmbient,
+                ClockTime = Lighting.ClockTime,
+                Brightness = Lighting.Brightness,
+            }
+        end
+        Lighting.Ambient = Color3.fromRGB(255, 100, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(100, 255, 255)
+        Lighting.Brightness = 5
+        Lighting.ClockTime = 15
+    else
+        if funSkyboxOriginal then
+            Lighting.Ambient = funSkyboxOriginal.Ambient
+            Lighting.OutdoorAmbient = funSkyboxOriginal.OutdoorAmbient
+            Lighting.ClockTime = funSkyboxOriginal.ClockTime
+            Lighting.Brightness = funSkyboxOriginal.Brightness
+        end
+    end
+end
+
 
 -- ============================================================
 -- MM2 ХЕЛПЕРИ
@@ -2368,6 +2840,82 @@ makeButton(pMm, "TP до випадкового", function()
     end)
 end)
 makeButton(pMm, "Server Hop", serverHop)
+
+
+-- ============================================================
+-- ВКЛАДКА: FUN
+-- ============================================================
+local pFun = newPage("🎉 Fun")
+
+makeLabel(pFun, "— Персонаж —")
+makeToggle(pFun, "Big Head", false, function(on)
+    State.FunBigHead = on
+    toggleFunBigHead(on)
+end)
+makeToggle(pFun, "Tiny Body", false, function(on)
+    State.FunTinyBody = on
+    toggleFunTinyBody(on)
+end)
+makeToggle(pFun, "Rainbow Character", false, function(on)
+    State.FunRainbowChar = on
+    toggleFunRainbow(on)
+end)
+makeToggle(pFun, "Spin Character", false, function(on)
+    State.FunSpinChar = on
+    toggleFunSpin(on)
+end)
+makeToggle(pFun, "Ghost Mode (напівпрозорий)", false, function(on)
+    State.FunGhostMode = on
+    toggleFunGhost(on)
+end)
+makeToggle(pFun, "Invisible (невидимий)", false, function(on)
+    State.FunInvisible = on
+    toggleFunInvisible(on)
+end)
+
+makeLabel(pFun, "— Ефекти —")
+makeToggle(pFun, "Tornado (крутить)", false, function(on)
+    State.FunTornado = on
+    toggleFunTornado(on)
+end)
+makeToggle(pFun, "Confetti (частинки)", false, function(on)
+    State.FunConfetti = on
+    toggleFunConfetti(on)
+end)
+makeToggle(pFun, "Clone (клон поруч)", false, function(on)
+    State.FunClone = on
+    toggleFunClone(on)
+end)
+makeToggle(pFun, "Rainbow Skybox", false, function(on)
+    State.FunCustomSkybox = on
+    toggleFunCustomSkybox(on)
+end)
+
+makeLabel(pFun, "— Веселі кнопки —")
+makeButton(pFun, "🎉 Кинути конфеті", function()
+    toggleFunConfetti(true)
+    State.FunConfetti = true
+    task.delay(3, function()
+        toggleFunConfetti(false)
+        State.FunConfetti = false
+    end)
+end)
+makeButton(pFun, "🌪 Tornado на 5 секунд", function()
+    State.FunTornado = true
+    toggleFunTornado(true)
+    task.delay(5, function()
+        State.FunTornado = false
+    end)
+end)
+makeButton(pFun, "🌈 Rainbow на 5 секунд", function()
+    State.FunRainbowChar = true
+    toggleFunRainbow(true)
+    task.delay(5, function()
+        State.FunRainbowChar = false
+    end)
+end)
+
+
 local pBa = newPage("Build A Boat")
 makeLabel(pBa, "— Build A Boat For Treasure —")
 makeToggle(pBa, "ESP Players", false, function(on) State.BaEsp = on end)
@@ -2513,6 +3061,25 @@ makeButton(pOther, "Unload ROCKET HUB", function()
     if mmRoleCounterGui then mmRoleCounterGui.gui:Destroy() end
     if mmCrossGui then mmCrossGui:Destroy() end
     mmClearFake()
+        -- Fun cleanup
+    if funBigHeadConn then funBigHeadConn:Disconnect() end
+    if funTinyConn then funTinyConn:Disconnect() end
+    if funRainbowConn then funRainbowConn:Disconnect() end
+    if funSpinConn then funSpinConn:Disconnect() end
+    if funGhostConn then funGhostConn:Disconnect() end
+    if funTornadoConn then funTornadoConn:Disconnect() end
+    if funCloneConn then funCloneConn:Disconnect() end
+    if funInvisConn then funInvisConn:Disconnect() end
+    for _, c in ipairs(funClones) do c:Destroy() end
+    funClones = {}
+    if funConfettiConn then funConfettiConn:Destroy() end
+    if funSkyboxOriginal then
+        Lighting.Ambient = funSkyboxOriginal.Ambient
+        Lighting.OutdoorAmbient = funSkyboxOriginal.OutdoorAmbient
+        Lighting.ClockTime = funSkyboxOriginal.ClockTime
+        Lighting.Brightness = funSkyboxOriginal.Brightness
+    end
+    if smartHideConn then smartHideConn:Disconnect() end
     Notify("ROCKET", "Скрипт вивантажено", "success")
     task.wait(0.3)
     gui:Destroy()
@@ -2598,6 +3165,18 @@ makeButton(pSet, "Тест: Success", function() Notify("Тест", "Це усп
 makeButton(pSet, "Тест: Error", function() Notify("Тест", "Це помилка!", "error") end)
 makeButton(pSet, "Тест: Warn", function() Notify("Тест", "Це попередження!", "warn") end)
 makeButton(pSet, "Тест: Info", function() Notify("Тест", "Це інформація", "info") end)
+makeLabel(pSet, "— Save / Load —")
+makeButton(pSet, "💾 Зберегти налаштування", function()
+    saveSettings()
+end, Color3.fromRGB(40, 100, 60))
+makeButton(pSet, "📂 Завантажити налаштування", function()
+    loadSettings()
+end, Color3.fromRGB(40, 80, 120))
+makeToggle(pSet, "Auto Save (кожні 30 с)", false, function(on)
+    State.AutoSave = on
+end)
+makeLabel(pSet, "Зберігає State + Settings у файл", Color3.fromRGB(150,150,150))
+
 makeLabel(pSet, "— Логер —")
 makeToggle(pSet, "Script Logger", Settings.UtilScriptLogger, function(on)
     Settings.UtilScriptLogger = on
