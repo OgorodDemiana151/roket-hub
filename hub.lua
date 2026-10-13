@@ -5,7 +5,8 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
-local CoreGui = game:GetService("CoreGui")
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+-- замінити всі gui.Parent = CoreGui на gui.Parent = PlayerGui
 local TweenService = game:GetService("TweenService")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
@@ -28,7 +29,7 @@ local FONT_SIZE = IS_MOBILE and 14 or 12
 
 -- Безпечний Parent для GUI (мобільні інжектори інколи блокують CoreGui)
 local function safeGuiParent(guiObj)
-    local ok = pcall(function() guiObj.Parent = CoreGui end)
+    local ok = pcall(function() guiObj.Parent = PlayerGui end)
     if not ok then
         guiObj.Parent = LocalPlayer:WaitForChild("PlayerGui")
     end
