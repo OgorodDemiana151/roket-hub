@@ -1438,27 +1438,40 @@ end)
 -- ============================================================
 
 -- ---------- 1. FPS Unlocker ----------
-task.spawn(function()
-    while true do
-        task.wait(0.5)
-        if State.UtilFpsUnlock then
-            pcall(function() setfpscap(999) end)
-            pcall(function() fireclickdetector(desc) end)
-        else
-            pcall(function() setfpscap(60) end)
+if not IS_MOBILE then
+    task.spawn(function()
+        while true do
+            task.wait(0.5)
+            if State.UtilFpsUnlock then
+                pcall(function() setfpscap(999) end)
+            else
+                pcall(function() setfpscap(60) end)
+            end
         end
-    end
-end)
+    end)
+end
 
 -- ---------- 2. Server Info HUD (FPS, Ping, Players, Uptime) ----------
 local serverHudStart = tick()
 local serverHudGui = nil
+local fpsCounter = {count = 0, last = tick(), value = 60}
+
+RunService.RenderStepped:Connect(function()
+    fpsCounter.count += 1
+    local now = tick()
+    if now - fpsCounter.last >= 1 then
+        fpsCounter.value = fpsCounter.count
+        fpsCounter.count = 0
+        fpsCounter.last = now
+    end
+end)
+
 local function createServerHud()
     if serverHudGui then return end
     local g = Instance.new("ScreenGui")
     g.Name = "ROCKET_ServerHud"
     g.ResetOnSpawn = false
-    g.Parent = CoreGui
+    g.Parent = PlayerGui
     local l = Instance.new("TextLabel")
     l.Size = UDim2.new(0, 250, 0, 70)
     l.Position = Settings.UtilHudPos
@@ -1472,33 +1485,26 @@ local function createServerHud()
     l.Parent = g
     serverHudGui = {gui = g, label = l}
 end
-RunService.Heartbeat:Connect(function()
-    if not State.UtilServerHud then
-        if serverHudGui then serverHudGui.gui.Enabled = false end
-        return
-    end
-    createServerHud()
-    serverHudGui.gui.Enabled = true
-    local ping = 0
-    pcall(function() ping = math.floor(LocalPlayer:GetNetworkPing() * 1000) end)
-    local frameCount = 0
-    local lastFpsUpdate = tick()
-    local currentFps = 60
-    RunService.RenderStepped:Connect(function()
-        frameCount += 1
-        if tick() - lastFpsUpdate >= 1 then
-            currentFps = frameCount
-            frameCount = 0
-            lastFpsUpdate = tick()
+
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if State.UtilServerHud then
+            createServerHud()
+            serverHudGui.gui.Enabled = true
+            local ping = 0
+            pcall(function() ping = math.floor(LocalPlayer:GetNetworkPing() * 1000) end)
+            local elapsed = math.floor(tick() - serverHudStart)
+            local m = math.floor(elapsed / 60)
+            local s = elapsed % 60
+            serverHudGui.label.Text = string.format(
+                "FPS: %d\nPing: %d ms\nPlayers: %d\nUptime: %02d:%02d",
+                fpsCounter.value, ping, #Players:GetPlayers(), m, s
+            )
+        elseif serverHudGui then
+            serverHudGui.gui.Enabled = false
         end
-    end)
-    local elapsed = math.floor(tick() - serverHudStart)
-    local m = math.floor(elapsed / 60)
-    local s = elapsed % 60
-    serverHudGui.label.Text = string.format(
-        "FPS: %d\nPing: %d ms\nPlayers: %d\nUptime: %02d:%02d",
-        fps, ping, #Players:GetPlayers(), m, s
-    )
+    end
 end)
 
 -- ---------- 3. Script Logger (пише всі дії в консоль) ----------
