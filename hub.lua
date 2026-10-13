@@ -169,7 +169,7 @@ end)
 local notifGui = Instance.new("ScreenGui")
 notifGui.Name = "ROCKET_Notifs"
 notifGui.ResetOnSpawn = false
-notifGui.Parent = CoreGui
+notifgui.Parent = PlayerGui
 
 local notifHolder = Instance.new("Frame")
 notifHolder.Size = UDim2.new(0, 320, 1, -40)
@@ -1758,7 +1758,7 @@ if old then old:Destroy() end
 local gui = Instance.new("ScreenGui")
 gui.Name = "ROCKET_HUB"
 gui.ResetOnSpawn = false
-gui.Parent = CoreGui
+gui.Parent = PlayerGui
 
 local main = Instance.new("Frame")
 main.Size = UDim2.new(0, GUI_W, 0, GUI_H)
