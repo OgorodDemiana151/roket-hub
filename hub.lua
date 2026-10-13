@@ -43,6 +43,13 @@ local State = {
     ArEsp = false, ArTracers = false,
     RvEsp = false, RvTracers = false, RvCamLock = false, RvTeamCheck = true,
     MmEsp = false, MmTracers = false, MmRoleEsp = true,
+    MmMurdererTracker = false, MmSheriffLocator = false,
+    MmShowDistance = false, MmWeaponEsp = false,
+    MmBodyEsp = false, MmRoleCounter = false,
+    MmKillNotifier = false, MmSafeList = false,
+    MmCrosshair = false, MmNoShake = false,
+    MmAutoPickupGun = false, MmFakeKnife = false,
+    MmFakeGun = false,
     BaEsp = false, BaTracers = false, BaAutoCollect = false,
     GrEsp = false, GrTracers = false, GrFullbright = false,
     GrEntityAlarm = false, GrEntityAlarmRadius = 40,
@@ -1934,13 +1941,406 @@ makeToggle(pRv, "Fullbright", false, function(on) State.Fullbright = on end)
 makeSlider(pRv, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
 makeButton(pRv, "Server Hop", serverHop)
 
+-- ============================================================
+-- MM2 ХЕЛПЕРИ
+-- ============================================================
+
+local function mmGetRole(player)
+    if not player or not player.Character then return "Unknown" end
+    local char = player.Character
+    for _, tool in ipairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            local n = tool.Name:lower()
+            if n:find("knife") or n:find("dagger") then return "Murderer" end
+            if n:find("gun") or n:find("revolver") or n:find("pistol") then return "Sheriff" end
+        end
+    end
+    local bp = player:FindFirstChildOfClass("Backpack")
+    if bp then
+        for _, tool in ipairs(bp:GetChildren()) do
+            if tool:IsA("Tool") then
+                local n = tool.Name:lower()
+                if n:find("knife") or n:find("dagger") then return "Murderer" end
+                if n:find("gun") or n:find("revolver") or n:find("pistol") then return "Sheriff" end
+            end
+        end
+    end
+    return "Innocent"
+end
+
+local function mmRoleColor(role)
+    if role == "Murderer" then return Color3.fromRGB(255, 60, 60) end
+    if role == "Sheriff" then return Color3.fromRGB(80, 160, 255) end
+    return Color3.fromRGB(220, 220, 220)
+end
+
+-- Murderer / Sheriff трекінг
+local mmTrackerHl = {}
+local function mmUpdateTrackers()
+    for p, hl in pairs(mmTrackerHl) do
+        if not p.Parent or not p.Character then
+            hl:Destroy()
+            mmTrackerHl[p] = nil
+        end
+    end
+    if not State.MmMurdererTracker and not State.MmSheriffLocator then
+        for _, hl in pairs(mmTrackerHl) do hl.Enabled = false end
+        return
+    end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local role = mmGetRole(p)
+            local want = (State.MmMurdererTracker and role == "Murderer")
+                      or (State.MmSheriffLocator and role == "Sheriff")
+            if want then
+                if not mmTrackerHl[p] then
+                    local hl = Instance.new("Highlight")
+                    hl.FillColor = mmRoleColor(role)
+                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    hl.FillTransparency = 0.3
+                    hl.OutlineTransparency = 0
+                    hl.Adornee = p.Character
+                    hl.Parent = p.Character
+                    mmTrackerHl[p] = hl
+                else
+                    mmTrackerHl[p].Adornee = p.Character
+                    mmTrackerHl[p].Enabled = true
+                end
+            elseif mmTrackerHl[p] then
+                mmTrackerHl[p].Enabled = false
+            end
+        end
+    end
+end
+
+-- Weapon ESP
+local mmWeaponHls = {}
+local function mmRefreshWeapons()
+    for item, hl in pairs(mmWeaponHls) do
+        if not item.Parent or not item.Parent:IsDescendantOf(workspace) then
+            hl:Destroy()
+            mmWeaponHls[item] = nil
+        end
+    end
+    if not State.MmWeaponEsp then
+        for _, hl in pairs(mmWeaponHls) do hl.Enabled = false end
+        return
+    end
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Tool") then
+            local n = obj.Name:lower()
+            if n:find("gun") or n:find("knife") or n:find("pistol") or n:find("revolver") or n:find("dagger") then
+                if not mmWeaponHls[obj] then
+                    local hl = Instance.new("Highlight")
+                    hl.FillColor = Color3.fromRGB(255, 220, 80)
+                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    hl.FillTransparency = 0.3
+                    hl.Adornee = obj
+                    hl.Parent = obj
+                    mmWeaponHls[obj] = hl
+                end
+                mmWeaponHls[obj].Enabled = true
+            end
+        end
+    end
+end
+
+-- Dead body ESP
+local mmBodyHls = {}
+local function mmRefreshBodies()
+    for item, hl in pairs(mmBodyHls) do
+        if not item.Parent then
+            hl:Destroy()
+            mmBodyHls[item] = nil
+        end
+    end
+    if not State.MmBodyEsp then
+        for _, hl in pairs(mmBodyHls) do hl.Enabled = false end
+        return
+    end
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and not obj:FindFirstChildOfClass("Humanoid") then
+            local n = obj.Name:lower()
+            if n:find("body") or n:find("ragdoll") or n:find("dead") then
+                if not mmBodyHls[obj] then
+                    local hl = Instance.new("Highlight")
+                    hl.FillColor = Color3.fromRGB(200, 100, 255)
+                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    hl.FillTransparency = 0.4
+                    hl.Adornee = obj
+                    hl.Parent = obj
+                    mmBodyHls[obj] = hl
+                end
+                mmBodyHls[obj].Enabled = true
+            end
+        end
+    end
+end
+
+-- Auto Pickup Gun
+task.spawn(function()
+    while true do
+        task.wait(0.4)
+        if State.MmAutoPickupGun then
+            local hrp = getHRP()
+            if hrp then
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    if obj:IsA("Tool") and (obj.Name:lower():find("gun") or obj.Name:lower():find("pistol")) then
+                        local part = obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
+                        if part and (part.Position - hrp.Position).Magnitude < 15 then
+                            hrp.CFrame = CFrame.new(part.Position + Vector3.new(0, 2, 0))
+                            pcall(function()
+                                local cd = part:FindFirstChildOfClass("ClickDetector")
+                                if cd then fireclickdetector(cd) end
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Role Counter HUD
+local mmRoleCounterGui = nil
+local function mmCreateRoleCounter()
+    if mmRoleCounterGui then return end
+    local g = Instance.new("ScreenGui")
+    g.Name = "ROCKET_MM2_Roles"
+    g.ResetOnSpawn = false
+    g.Parent = PlayerGui
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(0, 180, 0, 90)
+    f.Position = UDim2.new(0, 10, 0, 10)
+    f.BackgroundColor3 = Color3.fromRGB(20, 22, 32)
+    f.BackgroundTransparency = 0.2
+    f.BorderSizePixel = 0
+    f.Parent = g
+    local c = Instance.new("UICorner", f) c.CornerRadius = UDim.new(0, 8)
+    local s = Instance.new("UIStroke", f)
+    s.Color = Color3.fromRGB(120, 90, 220)
+    s.Thickness = 1.5
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 22)
+    title.BackgroundTransparency = 1
+    title.Text = "🎭 MM2 ROLES"
+    title.TextColor3 = Color3.fromRGB(220, 210, 255)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 12
+    title.Parent = f
+    local m = Instance.new("TextLabel")
+    m.Size = UDim2.new(1, -10, 0, 18)
+    m.Position = UDim2.new(0, 5, 0, 24)
+    m.BackgroundTransparency = 1
+    m.Text = "Murderer: 0"
+    m.TextColor3 = Color3.fromRGB(255, 80, 80)
+    m.Font = Enum.Font.Gotham
+    m.TextSize = 12
+    m.TextXAlignment = Enum.TextXAlignment.Left
+    m.Parent = f
+    local sh = Instance.new("TextLabel")
+    sh.Size = UDim2.new(1, -10, 0, 18)
+    sh.Position = UDim2.new(0, 5, 0, 42)
+    sh.BackgroundTransparency = 1
+    sh.Text = "Sheriff: 0"
+    sh.TextColor3 = Color3.fromRGB(80, 160, 255)
+    sh.Font = Enum.Font.Gotham
+    sh.TextSize = 12
+    sh.TextXAlignment = Enum.TextXAlignment.Left
+    sh.Parent = f
+    local i = Instance.new("TextLabel")
+    i.Size = UDim2.new(1, -10, 0, 18)
+    i.Position = UDim2.new(0, 5, 0, 60)
+    i.BackgroundTransparency = 1
+    i.Text = "Innocent: 0"
+    i.TextColor3 = Color3.fromRGB(220, 220, 220)
+    i.Font = Enum.Font.Gotham
+    i.TextSize = 12
+    i.TextXAlignment = Enum.TextXAlignment.Left
+    i.Parent = f
+    mmRoleCounterGui = {gui = g, m = m, s = sh, i = i}
+end
+RunService.Heartbeat:Connect(function()
+    if not State.MmRoleCounter then
+        if mmRoleCounterGui then mmRoleCounterGui.gui.Enabled = false end
+        return
+    end
+    mmCreateRoleCounter()
+    mmRoleCounterGui.gui.Enabled = true
+    local m, s, i = 0, 0, 0
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Character then
+            local hum = p.Character:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                local role = mmGetRole(p)
+                if role == "Murderer" then m += 1
+                elseif role == "Sheriff" then s += 1
+                else i += 1 end
+            end
+        end
+    end
+    mmRoleCounterGui.m.Text = "Murderer: " .. m
+    mmRoleCounterGui.s.Text = "Sheriff: " .. s
+    mmRoleCounterGui.i.Text = "Innocent: " .. i
+end)
+
+-- Kill Notifier
+local mmHooked = {}
+local function mmHookKills(p)
+    if p == LocalPlayer or mmHooked[p] then return end
+    mmHooked[p] = true
+    local function onChar(char)
+        local hum = char:WaitForChild("Humanoid", 5)
+        if hum then
+            hum.Died:Connect(function()
+                if State.MmKillNotifier then
+                    local role = mmGetRole(p)
+                    Notify("☠ " .. p.Name .. " (" .. role .. ") убитий", "error")
+                end
+            end)
+        end
+    end
+    if p.Character then onChar(p.Character) end
+    p.CharacterAdded:Connect(onChar)
+end
+for _, p in ipairs(Players:GetPlayers()) do mmHookKills(p) end
+Players.PlayerAdded:Connect(mmHookKills)
+
+-- Crosshair
+local mmCrossGui = nil
+RunService.RenderStepped:Connect(function()
+    if State.MmCrosshair then
+        if not mmCrossGui then
+            local g = Instance.new("ScreenGui")
+            g.Name = "ROCKET_MM2_Cross"
+            g.ResetOnSpawn = false
+            g.Parent = PlayerGui
+            local f = Instance.new("Frame")
+            f.Size = UDim2.new(0, 20, 0, 20)
+            f.Position = UDim2.new(0.5, -10, 0.5, -10)
+            f.BackgroundTransparency = 1
+            f.Parent = g
+            local h = Instance.new("Frame")
+            h.Size = UDim2.new(1, 0, 0, 2)
+            h.Position = UDim2.new(0, 0, 0.5, -1)
+            h.BackgroundColor3 = Color3.fromRGB(0, 255, 120)
+            h.BorderSizePixel = 0
+            h.Parent = f
+            local v = Instance.new("Frame")
+            v.Size = UDim2.new(0, 2, 1, 0)
+            v.Position = UDim2.new(0.5, -1, 0, 0)
+            v.BackgroundColor3 = Color3.fromRGB(0, 255, 120)
+            v.BorderSizePixel = 0
+            v.Parent = f
+            mmCrossGui = g
+        end
+        mmCrossGui.Enabled = true
+    elseif mmCrossGui then
+        mmCrossGui.Enabled = false
+    end
+end)
+
+-- No Shake
+RunService.RenderStepped:Connect(function()
+    if State.MmNoShake then
+        local hum = getHum()
+        if hum then
+            hum.CameraOffset = Vector3.zero
+        end
+    end
+end)
+
+-- Fake Knife / Gun
+local mmFakeTool = nil
+local function mmClearFake()
+    if mmFakeTool then mmFakeTool:Destroy() mmFakeTool = nil end
+end
+local function mmCreateFake(name, color)
+    mmClearFake()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local tool = Instance.new("Tool")
+    tool.Name = name
+    tool.RequiresHandle = true
+    tool.CanBeDropped = false
+    tool.Parent = char
+    local handle = Instance.new("Part")
+    handle.Name = "Handle"
+    handle.Size = Vector3.new(0.3, 0.3, 2)
+    handle.Material = Enum.Material.Metal
+    handle.Color = color
+    handle.CanCollide = false
+    handle.Massless = true
+    handle.Parent = tool
+    if not IS_MOBILE then
+        local hum = getHum()
+        if hum then hum:EquipTool(tool) end
+    end
+    mmFakeTool = tool
+end
+
+-- Основний цикл MM2 (оновлення ESP-ролі над гравцем + додатково distance)
+RunService.RenderStepped:Connect(function()
+    if not State.MmEsp and not State.MmShowDistance then return end
+    -- Роль вже показується через основний ESP (State.MmRoleEsp)
+end)
+
+-- Оновлення трекерів / зброї / тіл
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        mmUpdateTrackers()
+        mmRefreshWeapons()
+        mmRefreshBodies()
+    end
+end)
+
+-- ============================================================
+-- КІНЕЦЬ MM2 ХЕЛПЕРІВ
+-- ============================================================
+
 local pMm = newPage("MM2")
-makeLabel(pMm, "— Murder Mystery 2 —")
+makeLabel(pMm, "— ESP —")
 makeToggle(pMm, "ESP Players", false, function(on) State.MmEsp = on end)
 makeToggle(pMm, "Role ESP (Knife/Gun)", true, function(on) State.MmRoleEsp = on end)
 makeToggle(pMm, "Tracers", false, function(on) State.MmTracers = on end)
+makeToggle(pMm, "Show Distance", false, function(on) State.MmShowDistance = on end)
+makeToggle(pMm, "Murderer Tracker", false, function(on) State.MmMurdererTracker = on end)
+makeToggle(pMm, "Sheriff Locator", false, function(on) State.MmSheriffLocator = on end)
 makeToggle(pMm, "Fullbright", false, function(on) State.Fullbright = on end)
 makeSlider(pMm, "FOV", 40, 140, State.FOV, function(v) State.FOV = v end)
+
+makeLabel(pMm, "— Зброя та тіла —")
+makeToggle(pMm, "Weapon ESP", false, function(on) State.MmWeaponEsp = on end)
+makeToggle(pMm, "Dead Body ESP", false, function(on) State.MmBodyEsp = on end)
+makeToggle(pMm, "Auto Pickup Gun", false, function(on) State.MmAutoPickupGun = on end)
+
+makeLabel(pMm, "— HUD —")
+makeToggle(pMm, "Role Counter", false, function(on) State.MmRoleCounter = on end)
+makeToggle(pMm, "Kill Notifier", false, function(on) State.MmKillNotifier = on end)
+makeToggle(pMm, "Crosshair", false, function(on) State.MmCrosshair = on end)
+makeToggle(pMm, "No Camera Shake", false, function(on) State.MmNoShake = on end)
+
+makeLabel(pMm, "— Фейкові (локально) —")
+makeToggle(pMm, "Fake Knife (візуально)", false, function(on)
+    State.MmFakeKnife = on
+    if on then
+        mmCreateFake("Knife", Color3.fromRGB(180, 180, 200))
+        Notify("Fake Knife створено (без урону)", "warn")
+    else
+        mmClearFake()
+    end
+end)
+makeToggle(pMm, "Fake Gun (візуально)", false, function(on)
+    State.MmFakeGun = on
+    if on then
+        mmCreateFake("Gun", Color3.fromRGB(80, 80, 100))
+        Notify("Fake Gun створено (без пострілів)", "warn")
+    else
+        mmClearFake()
+    end
+end)
+
 makeLabel(pMm, "— TP до гравця —")
 makeTextBox(pMm, "", "введи ім'я гравця")
 makeButton(pMm, "TP до гравця", function()
@@ -1962,13 +2362,12 @@ makeButton(pMm, "TP до випадкового", function()
         end
         local hrp = getHRP()
         if hrp and #list > 0 then
-            hrp.CFrame = list[math.random(1, #list)].CFrame + Vector3.new(0,2,0)
+            hrp.CFrame = list[math.random(1, #list)].CFrame + Vector3.new(0, 2, 0)
             Notify("TP", "Переміщено", "success")
         end
     end)
 end)
 makeButton(pMm, "Server Hop", serverHop)
-
 local pBa = newPage("Build A Boat")
 makeLabel(pBa, "— Build A Boat For Treasure —")
 makeToggle(pBa, "ESP Players", false, function(on) State.BaEsp = on end)
@@ -2104,6 +2503,16 @@ makeButton(pOther, "Unload ROCKET HUB", function()
     autoDoorCache.doors = {}
     autoDoorCache.firedCooldown = {}
     lookAwayState.forbiddenEyes = {}
+        -- MM2 cleanup
+    for p, hl in pairs(mmTrackerHl) do hl:Destroy() end
+    mmTrackerHl = {}
+    for item, hl in pairs(mmWeaponHls) do hl:Destroy() end
+    mmWeaponHls = {}
+    for item, hl in pairs(mmBodyHls) do hl:Destroy() end
+    mmBodyHls = {}
+    if mmRoleCounterGui then mmRoleCounterGui.gui:Destroy() end
+    if mmCrossGui then mmCrossGui:Destroy() end
+    mmClearFake()
     Notify("ROCKET", "Скрипт вивантажено", "success")
     task.wait(0.3)
     gui:Destroy()
