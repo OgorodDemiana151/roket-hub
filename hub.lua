@@ -1443,6 +1443,7 @@ task.spawn(function()
         task.wait(0.5)
         if State.UtilFpsUnlock then
             pcall(function() setfpscap(999) end)
+            pcall(function() fireclickdetector(desc) end)
         else
             pcall(function() setfpscap(60) end)
         end
