@@ -5,13 +5,13 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
--- замінити всі gui.Parent = CoreGui на gui.Parent = PlayerGui
 local TweenService = game:GetService("TweenService")
 local TeleportService = game:GetService("TeleportService")
 local HttpService = game:GetService("HttpService")
 local SoundService = game:GetService("SoundService")
+
 local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")  -- ← ТЕПЕР тут можна
 local Camera = workspace.CurrentCamera
 
 -- ============================================================
