@@ -84,6 +84,21 @@ local State = {
 
     -- Save/Load
     AutoSave = false,
+
+        -- FTAP (Fling Things And People)
+    FtEsp = false,
+    FtEspItems = false,
+    FtTracers = false,
+    FtAutoDrag = false,
+    FtDragAll = false,
+    FtDragItems = false,
+    FtFlingNear = false,
+    FtMassFling = false,
+    FtAutoFling = false,
+    FtFlingRadius = 30,
+    FtFreezeSelf = false,
+    FtSelectedPlayer = nil,
+    FtBulletAim = false,
 }
 
 local Settings = {
@@ -2412,6 +2427,349 @@ local function toggleFunCustomSkybox(on)
     end
 end
 
+-- ============================================================
+-- FTAP (Fling Things And People) — хелпери
+-- ============================================================
+
+local FTAP = {
+    highlights = {},
+    tracers = {},
+    itemHighlights = {},
+    dragConn = nil,
+    dragAllConn = nil,
+    dragItemsConn = nil,
+    autoFlingConn = nil,
+    freezeConn = nil,
+    bulletConn = nil,
+}
+
+-- Функція отримання ролі для FTAP (усі гравці — цілі)
+local function ftGetTargets()
+    local list = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                table.insert(list, {player = p, hrp = hrp})
+            end
+        end
+    end
+    return list
+end
+
+local function ftGetNearestTarget()
+    local hrp = getHRP()
+    if not hrp then return nil end
+    local best, bestDist = nil, math.huge
+    for _, t in ipairs(ftGetTargets()) do
+        local d = (t.hrp.Position - hrp.Position).Magnitude
+        if d < bestDist then best, bestDist = t, d end
+    end
+    return best
+end
+
+local function ftGetItems()
+    local list = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Anchored == false
+           and obj ~= (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart"))
+           and not (obj.Parent and obj.Parent:IsA("Model") and obj.Parent:FindFirstChildOfClass("Humanoid")) then
+            table.insert(list, obj)
+        end
+    end
+    return list
+end
+
+-- ESP для гравців
+local function ftCreatePlayerHighlight(player)
+    if FTAP.highlights[player] then return end
+    local hl = Instance.new("Highlight")
+    hl.Name = "ROCKET_FTAP_HL"
+    hl.FillColor = Color3.fromRGB(255, 80, 80)
+    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+    hl.FillTransparency = 0.6
+    hl.OutlineTransparency = 0.2
+    hl.Enabled = false
+    hl.Parent = workspace
+    FTAP.highlights[player] = hl
+
+    local bb = Instance.new("BillboardGui")
+    bb.Name = "ROCKET_FTAP_BB"
+    bb.Size = UDim2.new(0, 120, 0, 20)
+    bb.StudsOffset = Vector3.new(0, 3, 0)
+    bb.AlwaysOnTop = true
+    bb.Enabled = false
+
+    local txt = Instance.new("TextLabel")
+    txt.Size = UDim2.new(1, 0, 1, 0)
+    txt.BackgroundTransparency = 1
+    txt.Text = player.Name
+    txt.TextColor3 = Color3.fromRGB(255, 255, 255)
+    txt.Font = Enum.Font.GothamBold
+    txt.TextSize = 12
+    txt.TextStrokeTransparency = 0
+    txt.Parent = bb
+
+    FTAP.highlights[player] = {hl = hl, bb = bb, txt = txt}
+end
+
+-- Tracer для гравців
+local function ftCreatePlayerTracer(player)
+    if FTAP.tracers[player] then return end
+    local line = Instance.new("Part")
+    line.Name = "ROCKET_FTAP_TRACER"
+    line.Anchored = true
+    line.CanCollide = false
+    line.CanQuery = false
+    line.CanTouch = false
+    line.Material = Enum.Material.Neon
+    line.Color = Color3.fromRGB(255, 80, 80)
+    line.Size = Vector3.new(0.15, 0.15, 1)
+    line.Transparency = 0.4
+    line.Parent = workspace
+    FTAP.tracers[player] = line
+end
+
+-- Оновлення ESP/tracers
+RunService.RenderStepped:Connect(function()
+    -- Players
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            if not FTAP.highlights[p] then ftCreatePlayerHighlight(p) end
+            local data = FTAP.highlights[p]
+            local char = p.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local head = char and char:FindFirstChild("Head")
+
+            if State.FtEsp and hrp and head then
+                data.hl.Adornee = char
+                data.hl.Enabled = true
+                data.bb.Adornee = head
+                data.bb.Enabled = true
+                data.txt.Text = p.Name
+            else
+                if data.hl then data.hl.Enabled = false end
+                if data.bb then data.bb.Enabled = false end
+            end
+
+            -- Tracers
+            if not FTAP.tracers[p] then ftCreatePlayerTracer(p) end
+            local tr = FTAP.tracers[p]
+            local myHRP = getHRP()
+            if State.FtTracers and hrp and myHRP then
+                tr.Transparency = 0.4
+                local from = myHRP.Position
+                local to = hrp.Position
+                local mid = (from + to) / 2
+                tr.Size = Vector3.new(0.15, 0.15, (to - from).Magnitude)
+                tr.CFrame = CFrame.lookAt(mid, to)
+            else
+                tr.Transparency = 1
+            end
+        end
+    end
+
+    -- Items
+    if State.FtEspItems then
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Anchored == false then
+                local isCharPart = false
+                local parent = obj.Parent
+                if parent and parent:IsA("Model") and parent:FindFirstChildOfClass("Humanoid") then
+                    isCharPart = true
+                end
+                if not isCharPart and not FTAP.itemHighlights[obj] then
+                    local hl = Instance.new("Highlight")
+                    hl.Name = "ROCKET_FTAP_ITEM"
+                    hl.FillColor = Color3.fromRGB(255, 220, 80)
+                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    hl.FillTransparency = 0.4
+                    hl.Adornee = obj
+                    hl.Parent = obj
+                    FTAP.itemHighlights[obj] = hl
+                end
+            end
+        end
+    else
+        for obj, hl in pairs(FTAP.itemHighlights) do
+            if hl then hl.Enabled = false end
+        end
+    end
+end)
+
+-- Auto Drag — тягне обраного до себе
+local function startAutoDrag(player)
+    State.FtSelectedPlayer = player
+    if FTAP.dragConn then FTAP.dragConn:Disconnect() end
+    FTAP.dragConn = RunService.Heartbeat:Connect(function()
+        if not State.FtAutoDrag then return end
+        local myHRP = getHRP()
+        if not myHRP then return end
+        local target = State.FtSelectedPlayer
+        if not target or not target.Character then
+            -- Якщо гравець зник — взяти найближчого
+            local nearest = ftGetNearestTarget()
+            if nearest then target = nearest.player State.FtSelectedPlayer = target end
+        end
+        if target and target.Character then
+            local hrp = target.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                -- Тягнемо до себе, зберігаючи висоту
+                local dir = (myHRP.Position - hrp.Position).Unit
+                hrp.CFrame = hrp.CFrame + dir * 3
+            end
+        end
+    end)
+end
+
+local function stopAutoDrag()
+    if FTAP.dragConn then FTAP.dragConn:Disconnect() FTAP.dragConn = nil end
+end
+
+-- Drag All — тягне всіх до себе
+local function startDragAll()
+    if FTAP.dragAllConn then FTAP.dragAllConn:Disconnect() end
+    FTAP.dragAllConn = RunService.Heartbeat:Connect(function()
+        if not State.FtDragAll then return end
+        local myHRP = getHRP()
+        if not myHRP then return end
+        for _, t in ipairs(ftGetTargets()) do
+            local dir = (myHRP.Position - t.hrp.Position).Unit
+            t.hrp.CFrame = t.hrp.CFrame + dir * 2
+        end
+    end)
+end
+
+local function stopDragAll()
+    if FTAP.dragAllConn then FTAP.dragAllConn:Disconnect() FTAP.dragAllConn = nil end
+end
+
+-- Drag Items — тягне всі предмети до себе
+local function startDragItems()
+    if FTAP.dragItemsConn then FTAP.dragItemsConn:Disconnect() end
+    FTAP.dragItemsConn = RunService.Heartbeat:Connect(function()
+        if not State.FtDragItems then return end
+        local myHRP = getHRP()
+        if not myHRP then return end
+        for _, obj in ipairs(ftGetItems()) do
+            local d = (myHRP.Position - obj.Position).Magnitude
+            if d < 200 then
+                local dir = (myHRP.Position - obj.Position).Unit
+                obj.CFrame = obj.CFrame + dir * 5
+            end
+        end
+    end)
+end
+
+local function stopDragItems()
+    if FTAP.dragItemsConn then FTAP.dragItemsConn:Disconnect() FTAP.dragItemsConn = nil end
+end
+
+-- Auto-Fling: підкидає гравців поруч
+local function startAutoFling()
+    if FTAP.autoFlingConn then FTAP.autoFlingConn:Disconnect() end
+    FTAP.autoFlingConn = RunService.Heartbeat:Connect(function()
+        if not State.FtAutoFling then return end
+        local myHRP = getHRP()
+        if not myHRP then return end
+        for _, t in ipairs(ftGetTargets()) do
+            local d = (t.hrp.Position - myHRP.Position).Magnitude
+            if d < State.FtFlingRadius then
+                -- Відкидаємо у випадковому напрямку
+                local dir = Vector3.new(math.random(-1, 1), 1, math.random(-1, 1)).Unit
+                t.hrp.Velocity = dir * 500
+            end
+        end
+    end)
+end
+
+local function stopAutoFling()
+    if FTAP.autoFlingConn then FTAP.autoFlingConn:Disconnect() FTAP.autoFlingConn = nil end
+end
+
+-- Mass Fling — миттєвий fling усіх у радіусі
+local function massFling()
+    local myHRP = getHRP()
+    if not myHRP then return end
+    local count = 0
+    for _, t in ipairs(ftGetTargets()) do
+        local d = (t.hrp.Position - myHRP.Position).Magnitude
+        if d < State.FtFlingRadius then
+            local dir = Vector3.new(math.random(-1, 1), 1, math.random(-1, 1)).Unit
+            t.hrp.Velocity = dir * 800
+            count += 1
+        end
+    end
+    Notify("Mass Fling", "Відкинуто: " .. count, "info")
+end
+
+-- Fling Nearest
+local function flingNearest()
+    local nearest = ftGetNearestTarget()
+    if not nearest then Notify("Fling", "Нікого поруч", "warn") return end
+    local dir = Vector3.new(math.random(-1, 1), 1, math.random(-1, 1)).Unit
+    nearest.hrp.Velocity = dir * 800
+    Notify("Fling", "Відкинуто " .. nearest.player.Name, "success")
+end
+
+-- Freeze Self
+local function startFreezeSelf()
+    if FTAP.freezeConn then FTAP.freezeConn:Disconnect() end
+    FTAP.freezeConn = RunService.Heartbeat:Connect(function()
+        if not State.FtFreezeSelf then return end
+        local hrp = getHRP()
+        if hrp then
+            hrp.Anchored = true
+        end
+    end)
+end
+
+local function stopFreezeSelf()
+    if FTAP.freezeConn then FTAP.freezeConn:Disconnect() FTAP.freezeConn = nil end
+    local hrp = getHRP()
+    if hrp then hrp.Anchored = false end
+end
+
+-- Bullet Aim — спавнить кулю, яка летить у гравця
+local function spawnBullet()
+    local nearest = ftGetNearestTarget()
+    if not nearest then Notify("Bullet", "Нікого поруч", "warn") return end
+    local myHRP = getHRP()
+    if not myHRP then return end
+    local bullet = Instance.new("Part")
+    bullet.Size = Vector3.new(2, 2, 2)
+    bullet.Shape = Enum.PartType.Ball
+    bullet.Material = Enum.Material.Neon
+    bullet.Color = Color3.fromRGB(255, 100, 100)
+    bullet.CanCollide = false
+    bullet.Position = myHRP.Position + myHRP.CFrame.LookVector * 5
+    bullet.Parent = workspace
+
+    local bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+    bv.Velocity = (nearest.hrp.Position - bullet.Position).Unit * 500
+    bv.Parent = bullet
+
+    task.delay(3, function() bullet:Destroy() end)
+end
+
+-- Drag Selected by Name
+local function dragPlayerByName(name)
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Name:lower():find(name:lower()) then
+            State.FtAutoDrag = true
+            startAutoDrag(p)
+            Notify("Auto Drag", "Тягну " .. p.Name, "success")
+            return
+        end
+    end
+    Notify("Auto Drag", "Гравця не знайдено: " .. name, "error")
+end
+
+
+-- ============================================================
+-- КІНЕЦЬ FTAP
+-- ============================================================
 
 -- ============================================================
 -- MM2 ХЕЛПЕРИ
@@ -2915,6 +3273,111 @@ makeButton(pFun, "🌈 Rainbow на 5 секунд", function()
     end)
 end)
 
+-- ============================================================
+-- ВКЛАДКА: FTAP
+-- ============================================================
+local pFt = newPage("💥 FTAP")
+
+makeLabel(pFt, "— ESP —")
+makeToggle(pFt, "ESP Players", false, function(on) State.FtEsp = on end)
+makeToggle(pFt, "ESP Items (фізичні)", false, function(on) State.FtEspItems = on end)
+makeToggle(pFt, "Tracers", false, function(on) State.FtTracers = on end)
+
+makeLabel(pFt, "— Drag (тягнути) —")
+makeLabel(pFt, "Auto Drag — тягне найближчого (або обраного)", Color3.fromRGB(180,180,180))
+makeTextBox(pFt, "", "ім'я гравця (порожнє = найближчий)")
+makeButton(pFt, "🪢 Запустити Auto Drag", function()
+    local name = ""
+    for _, child in ipairs(pFt:GetChildren()) do
+        if child:IsA("TextBox") then name = child.Text end
+    end
+    if name == "" then
+        local nearest = ftGetNearestTarget()
+        if nearest then
+            State.FtAutoDrag = true
+            startAutoDrag(nearest.player)
+            Notify("Auto Drag", "Тягну " .. nearest.player.Name, "success")
+        else
+            Notify("Auto Drag", "Нікого поруч", "warn")
+        end
+    else
+        dragPlayerByName(name)
+    end
+end)
+makeButton(pFt, "🛑 Зупинити Auto Drag", function()
+    State.FtAutoDrag = false
+    stopAutoDrag()
+    Notify("Auto Drag", "Зупинено", "info")
+end)
+
+makeToggle(pFt, "Drag All (усіх до мене)", false, function(on)
+    State.FtDragAll = on
+    if on then startDragAll() else stopDragAll() end
+end)
+
+makeToggle(pFt, "Drag Items (предмети до мене)", false, function(on)
+    State.FtDragItems = on
+    if on then startDragItems() else stopDragItems() end
+end)
+
+makeLabel(pFt, "— Fling (відкидання) —")
+makeButton(pFt, "💥 Fling Nearest", function()
+    flingNearest()
+end)
+makeButton(pFt, "💥💥 Mass Fling (усіх у радіусі)", function()
+    massFling()
+end, Color3.fromRGB(120, 40, 50))
+makeSlider(pFt, "Fling Radius", 10, 100, State.FtFlingRadius, function(v) State.FtFlingRadius = v end)
+makeToggle(pFt, "Auto Fling (автоматично)", false, function(on)
+    State.FtAutoFling = on
+    if on then startAutoFling() else stopAutoFling() end
+end)
+
+makeLabel(pFt, "— Куля —")
+makeButton(pFt, "🎯 Випустити кулю в найближчого", function()
+    spawnBullet()
+end)
+
+makeLabel(pFt, "— Рух —")
+makeToggle(pFt, "Freeze Self (заморозити себе)", false, function(on)
+    State.FtFreezeSelf = on
+    if on then startFreezeSelf() else stopFreezeSelf() end
+end)
+makeToggle(pFt, "Fly", false, function(on) State.Fly = on if on then startFly() else stopFly() end end)
+makeToggle(pFt, "Noclip", false, function(on) State.Noclip = on end)
+makeToggle(pFt, "Infinite Jump", false, function(on) State.InfJump = on end)
+makeSlider(pFt, "Speed", 16, 300, State.Speed, function(v) State.Speed = v applyHumanoid() end)
+
+makeLabel(pFt, "— TP —")
+makeButton(pFt, "TP до найближчого гравця", function()
+    local nearest = ftGetNearestTarget()
+    if nearest then
+        local myHRP = getHRP()
+        if myHRP then
+            myHRP.CFrame = nearest.hrp.CFrame + Vector3.new(0, 3, 0)
+            Notify("TP", "До " .. nearest.player.Name, "success")
+        end
+    else
+        Notify("TP", "Нікого поруч", "warn")
+    end
+end)
+makeButton(pFt, "TP до найближчого предмета", function()
+    local myHRP = getHRP()
+    if not myHRP then return end
+    local best, bestDist = nil, math.huge
+    for _, obj in ipairs(ftGetItems()) do
+        local d = (obj.Position - myHRP.Position).Magnitude
+        if d < bestDist then best, bestDist = obj, d end
+    end
+    if best then
+        myHRP.CFrame = best.CFrame + Vector3.new(0, 3, 0)
+        Notify("TP", "До предмета", "success")
+    else
+        Notify("TP", "Предметів не знайдено", "warn")
+    end
+end)
+makeButton(pFt, "Server Hop", serverHop)
+
 
 local pBa = newPage("Build A Boat")
 makeLabel(pBa, "— Build A Boat For Treasure —")
@@ -3080,6 +3543,23 @@ makeButton(pOther, "Unload ROCKET HUB", function()
         Lighting.Brightness = funSkyboxOriginal.Brightness
     end
     if smartHideConn then smartHideConn:Disconnect() end
+        -- FTAP cleanup
+    for _, data in pairs(FTAP.highlights) do
+        if type(data) == "table" then
+            if data.hl then data.hl:Destroy() end
+            if data.bb then data.bb:Destroy() end
+        end
+    end
+    FTAP.highlights = {}
+    for _, tr in pairs(FTAP.tracers) do tr:Destroy() end
+    FTAP.tracers = {}
+    for _, hl in pairs(FTAP.itemHighlights) do hl:Destroy() end
+    FTAP.itemHighlights = {}
+    stopAutoDrag()
+    stopDragAll()
+    stopDragItems()
+    stopAutoFling()
+    stopFreezeSelf()
     Notify("ROCKET", "Скрипт вивантажено", "success")
     task.wait(0.3)
     gui:Destroy()
