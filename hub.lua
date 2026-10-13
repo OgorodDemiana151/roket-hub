@@ -1481,8 +1481,17 @@ RunService.Heartbeat:Connect(function()
     serverHudGui.gui.Enabled = true
     local ping = 0
     pcall(function() ping = math.floor(LocalPlayer:GetNetworkPing() * 1000) end)
-    local fps = 60  -- fallback
-    pcall(function() fps = math.floor(1 / RunService.RenderStepped:Wait()) end)
+    local frameCount = 0
+    local lastFpsUpdate = tick()
+    local currentFps = 60
+    RunService.RenderStepped:Connect(function()
+        frameCount += 1
+        if tick() - lastFpsUpdate >= 1 then
+            currentFps = frameCount
+            frameCount = 0
+            lastFpsUpdate = tick()
+        end
+    end)
     local elapsed = math.floor(tick() - serverHudStart)
     local m = math.floor(elapsed / 60)
     local s = elapsed % 60
