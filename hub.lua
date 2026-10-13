@@ -1337,7 +1337,7 @@ RunService.Heartbeat:Connect(function()
                     pcall(function()
                         for _, desc in ipairs(door:GetDescendants()) do
                             if desc:IsA("ClickDetector") then
-                                fireclickdetector(desc)
+                            pcall(function() fireclickdetector(desc) end)
                             end
                         end
                     end)
@@ -1602,7 +1602,11 @@ local function takeScreenshot()
         local filename = "rocket_screenshot_" .. os.date("%Y%m%d_%H%M%S") .. ".png"
         local img = game:GetService("ThumbnailGenerator")
         -- fallback: робимо знімок через viewport
-        if writefile and not getcustomasset then
+        pcall(function()
+            if writefile then
+                -- ...
+            end
+        end)
             -- Solara не має прямого screenshot API
             -- використовуємо ViewportFrame
         end
